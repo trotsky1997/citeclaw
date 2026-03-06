@@ -37,6 +37,12 @@ const defaultProbeBodyBytes = parseInt( process.env.CITOID_LOCAL_PROBE_BODY_BYTE
 const defaultFetchConcurrency = parseInt( process.env.CITOID_LOCAL_FETCH_CONCURRENCY || '4', 10 );
 const defaultBatchConcurrency = parseInt( process.env.CITOID_LOCAL_BATCH_CONCURRENCY || '4', 10 );
 const defaultOpenUrlBase = process.env.OPENURL_BASE || '';
+const defaultZoteroApiBase = process.env.ZOTERO_API_BASE || 'https://api.zotero.org';
+const defaultZoteroUserId = process.env.ZOTERO_USER_ID || '';
+const defaultZoteroApiKey = process.env.ZOTERO_API_KEY || '';
+const defaultZoteroLibraryType = process.env.ZOTERO_LIBRARY_TYPE || 'users';
+const defaultZoteroLibraryId = process.env.ZOTERO_LIBRARY_ID || '';
+const zoteroAuthPath = path.join( stateDir, 'zotero-auth.json' );
 const cacheRootDir = process.env.LOCAL_CACHE_DIR || path.join( localDir, 'cache' );
 const cacheMetaPath = path.join( cacheRootDir, 'cache-meta.json' );
 const pdfCacheDir = path.join( cacheRootDir, 'pdfs' );
@@ -55,6 +61,7 @@ function usage() {
 	console.error( '  botcite cite-pdf [--headers] <pdf-path>' );
 	console.error( '  botcite fetch-pdf [--base <openurl-base>] [--out <file.pdf>] <doi|arxiv|url>' );
 	console.error( '  botcite openurl-resolve [--base <openurl-base>] <doi|arxiv|url>' );
+	console.error( '  botcite zotero <login|logout|query|dump|cite> [...]' );
 	console.error( '  botcite batch --op <cite|cite-style|fetch-pdf|openurl-resolve> --in <file>' );
 	console.error( '  botcite styles sync [--repo <git-url>]' );
 	console.error( '  botcite cite-style [--plain] [--style <name-or-path>] [--locale zh-CN] <query>' );
@@ -69,9 +76,17 @@ function usage() {
 	console.error( '  botcite fetch-pdf 10.1038/s41586-020-2649-2' );
 	console.error( '  botcite fetch-pdf 1706.03762 --out ./attention.pdf' );
 	console.error( "  botcite openurl-resolve --base 'https://example.edu/openurl' 10.1038/s41586-020-2649-2" );
+	console.error( '  botcite zotero login --user-id 123456 --api-key xxxx' );
+	console.error( "  botcite zotero query 'transformer'" );
+	console.error( '  botcite zotero cite AB12CD34' );
 	console.error( '  botcite batch --op cite --format bibtex --in ./ids.txt --out-jsonl ./result.jsonl' );
 	console.error( 'options:' );
 	console.error( '  --concurrency <n>  batch worker count (default: 4)' );
+	console.error( '  --user-id <id>     Zotero user id (or set ZOTERO_USER_ID)' );
+	console.error( '  --api-key <key>    Zotero API key (or set ZOTERO_API_KEY)' );
+	console.error( '  --library-type     users|groups (default: users)' );
+	console.error( '  --library-id <id>  Zotero library id (group id for groups)' );
+	console.error( '  --limit <n>        Zotero query/dump limit (1-100)' );
 	console.error( '  --profile          print timing diagnostics to stderr' );
 	console.error( '  botcite styles sync' );
 	console.error( "  botcite cite-style --locale zh-CN '10.1145/3368089.3409741'" );
@@ -586,6 +601,12 @@ function parseOptions( args ) {
 		locale: 'en-US',
 		repo: defaultStylesRepo,
 		base: defaultOpenUrlBase,
+		zoteroApiBase: defaultZoteroApiBase,
+		zoteroUserId: defaultZoteroUserId,
+		zoteroApiKey: defaultZoteroApiKey,
+		zoteroLibraryType: defaultZoteroLibraryType,
+		zoteroLibraryId: defaultZoteroLibraryId,
+		limit: 20,
 		out: '',
 		op: '',
 		in: '',
@@ -619,6 +640,25 @@ function parseOptions( args ) {
 			i++;
 		} else if ( arg === '--base' ) {
 			options.base = args[ i + 1 ] || defaultOpenUrlBase;
+			i++;
+		} else if ( arg === '--zotero-api-base' ) {
+			options.zoteroApiBase = args[ i + 1 ] || defaultZoteroApiBase;
+			i++;
+		} else if ( arg === '--user-id' || arg === '--zotero-user-id' ) {
+			options.zoteroUserId = args[ i + 1 ] || '';
+			i++;
+		} else if ( arg === '--api-key' || arg === '--zotero-api-key' ) {
+			options.zoteroApiKey = args[ i + 1 ] || '';
+			i++;
+		} else if ( arg === '--library-type' || arg === '--zotero-library-type' ) {
+			options.zoteroLibraryType = args[ i + 1 ] || defaultZoteroLibraryType;
+			i++;
+		} else if ( arg === '--library-id' || arg === '--zotero-library-id' ) {
+			options.zoteroLibraryId = args[ i + 1 ] || '';
+			i++;
+		} else if ( arg === '--limit' ) {
+			const raw = args[ i + 1 ];
+			options.limit = parseInt( raw || '20', 10 );
 			i++;
 		} else if ( arg === '--op' ) {
 			options.op = args[ i + 1 ] || '';
@@ -1052,6 +1092,347 @@ function normalizeCitationQuery( rawQuery ) {
 		query,
 		normalized: false
 	};
+}
+
+function normalizeZoteroLibraryType( rawType ) {
+	const normalized = String( rawType || '' ).trim().toLowerCase();
+	if ( normalized === 'users' || normalized === 'groups' ) {
+		return normalized;
+	}
+	throw new Error( `Unsupported Zotero library type: ${ rawType } (use users or groups)` );
+}
+
+function loadZoteroAuth() {
+	if ( !fileExists( zoteroAuthPath ) ) {
+		return null;
+	}
+	try {
+		const parsed = JSON.parse( fs.readFileSync( zoteroAuthPath, 'utf8' ) );
+		if ( parsed && typeof parsed === 'object' ) {
+			return parsed;
+		}
+		return null;
+	} catch ( error ) {
+		return null;
+	}
+}
+
+function saveZoteroAuth( auth ) {
+	ensureDirs();
+	fs.writeFileSync( zoteroAuthPath, `${ JSON.stringify( auth, null, 2 ) }\n`, { mode: 0o600 } );
+}
+
+function clearZoteroAuth() {
+	if ( fileExists( zoteroAuthPath ) ) {
+		fs.rmSync( zoteroAuthPath, { force: true } );
+	}
+}
+
+function mergeZoteroAuth(options) {
+	const saved = loadZoteroAuth() || {};
+	const merged = {
+		apiBase: String( options.zoteroApiBase || saved.apiBase || defaultZoteroApiBase ).trim(),
+		userId: String( options.zoteroUserId || saved.userId || defaultZoteroUserId ).trim(),
+		apiKey: String( options.zoteroApiKey || saved.apiKey || defaultZoteroApiKey ).trim(),
+		libraryType: String( options.zoteroLibraryType || saved.libraryType || defaultZoteroLibraryType ).trim(),
+		libraryId: String( options.zoteroLibraryId || saved.libraryId || defaultZoteroLibraryId ).trim()
+	};
+	merged.libraryType = normalizeZoteroLibraryType( merged.libraryType );
+	if ( merged.libraryType === 'users' && !merged.libraryId ) {
+		merged.libraryId = merged.userId;
+	}
+	if ( merged.libraryType === 'users' && !merged.userId ) {
+		merged.userId = merged.libraryId;
+	}
+	return merged;
+}
+
+function requireZoteroLibrary( auth ) {
+	if ( !auth.libraryId ) {
+		if ( auth.libraryType === 'users' ) {
+			throw new Error( 'Missing Zotero user id. Run: botcite zotero login --user-id <id> --api-key <key>' );
+		}
+		throw new Error( 'Missing Zotero group id. Use --library-type groups --library-id <id> during login.' );
+	}
+}
+
+function parseZoteroItemReference( rawReference, auth ) {
+	const input = String( rawReference || '' ).trim();
+	if ( !input ) {
+		throw new Error( 'Missing Zotero item reference.' );
+	}
+
+	const keyOnly = input.match( /^[A-Z0-9]{8}$/i );
+	if ( keyOnly ) {
+		return {
+			libraryType: auth.libraryType,
+			libraryId: auth.libraryId,
+			itemKey: keyOnly[ 0 ].toUpperCase()
+		};
+	}
+
+	const webUser = input.match( /zotero\.org\/users\/(\d+)\/items\/([A-Z0-9]{8})/i );
+	if ( webUser ) {
+		return {
+			libraryType: 'users',
+			libraryId: webUser[ 1 ],
+			itemKey: webUser[ 2 ].toUpperCase()
+		};
+	}
+
+	const webGroup = input.match( /zotero\.org\/groups\/(\d+)\/items\/([A-Z0-9]{8})/i );
+	if ( webGroup ) {
+		return {
+			libraryType: 'groups',
+			libraryId: webGroup[ 1 ],
+			itemKey: webGroup[ 2 ].toUpperCase()
+		};
+	}
+
+	const localUser = input.match( /^zotero:\/\/select\/library\/items\/([A-Z0-9]{8})$/i );
+	if ( localUser ) {
+		return {
+			libraryType: auth.libraryType,
+			libraryId: auth.libraryId,
+			itemKey: localUser[ 1 ].toUpperCase()
+		};
+	}
+
+	const localGroup = input.match( /^zotero:\/\/select\/groups\/(\d+)\/items\/([A-Z0-9]{8})$/i );
+	if ( localGroup ) {
+		return {
+			libraryType: 'groups',
+			libraryId: localGroup[ 1 ],
+			itemKey: localGroup[ 2 ].toUpperCase()
+		};
+	}
+
+	throw new Error( `Unsupported Zotero reference: ${ input }` );
+}
+
+function buildZoteroApiUrl( auth, pathname, queryObj = {} ) {
+	const base = String( auth.apiBase || defaultZoteroApiBase ).replace( /\/+$/, '' );
+	const url = new URL( `${ base }${ pathname }` );
+	Object.entries( queryObj ).forEach( ( [ key, value ] ) => {
+		if ( value !== undefined && value !== null && value !== '' ) {
+			url.searchParams.set( key, String( value ) );
+		}
+	} );
+	return url.toString();
+}
+
+async function zoteroApiRequest( auth, pathname, queryObj = {} ) {
+	const url = buildZoteroApiUrl( auth, pathname, queryObj );
+	const headers = {
+		Accept: 'application/json, text/plain;q=0.9, */*;q=0.1'
+	};
+	if ( auth.apiKey ) {
+		headers[ 'Zotero-API-Key' ] = auth.apiKey;
+	}
+	const limiter = new HostRateLimiter( 0 );
+	const response = await requestExternal( url, limiter, { headers } );
+	const body = bodyToText( response );
+	return { url, response, body };
+}
+
+function parseZoteroJsonArray( body, url ) {
+	try {
+		const parsed = JSON.parse( body );
+		if ( Array.isArray( parsed ) ) {
+			return parsed;
+		}
+		throw new Error( `Unexpected Zotero payload from ${ url }` );
+	} catch ( error ) {
+		throw new Error( `Invalid JSON from Zotero API: ${ error.message }` );
+	}
+}
+
+function stripToSafeAuthView( auth ) {
+	return {
+		api_base: auth.apiBase,
+		library_type: auth.libraryType,
+		library_id: auth.libraryId,
+		has_api_key: !!auth.apiKey
+	};
+}
+
+async function runZoteroLogin( options ) {
+	const auth = mergeZoteroAuth( options );
+	if ( !auth.apiKey ) {
+		throw new Error( 'Missing Zotero API key. Pass --api-key or set ZOTERO_API_KEY.' );
+	}
+	requireZoteroLibrary( auth );
+	saveZoteroAuth( {
+		apiBase: auth.apiBase,
+		userId: auth.userId,
+		apiKey: auth.apiKey,
+		libraryType: auth.libraryType,
+		libraryId: auth.libraryId,
+		savedAt: new Date().toISOString()
+	} );
+	if ( options.json ) {
+		jsonOut( { ok: true, command: 'zotero', stage: 'login', auth: stripToSafeAuthView( auth ) } );
+		return;
+	}
+	process.stdout.write( `zotero login saved (${ auth.libraryType }/${ auth.libraryId })\n` );
+}
+
+async function runZoteroLogout( options ) {
+	clearZoteroAuth();
+	if ( options.json ) {
+		jsonOut( { ok: true, command: 'zotero', stage: 'logout' } );
+		return;
+	}
+	process.stdout.write( 'zotero login cleared\n' );
+}
+
+async function runZoteroQuery( query, options ) {
+	const auth = mergeZoteroAuth( options );
+	requireZoteroLibrary( auth );
+	const q = String( query || '' ).trim();
+	if ( !q ) {
+		throw new Error( 'Missing query text for zotero query' );
+	}
+	const limit = Math.max( 1, Math.min( 100, Number.isFinite( options.limit ) ? options.limit : 20 ) );
+	const { url, response, body } = await zoteroApiRequest(
+		auth,
+		`/${ auth.libraryType }/${ encodeURIComponent( auth.libraryId ) }/items`,
+		{
+			q,
+			format: 'json',
+			include: 'data',
+			limit
+		}
+	);
+	if ( response.statusCode < 200 || response.statusCode >= 300 ) {
+		throw new Error( `Zotero query failed (${ response.statusCode }) at ${ url }` );
+	}
+	const rows = parseZoteroJsonArray( body, url ).map( ( item ) => ( {
+		key: item && item.key,
+		title: item && item.data && item.data.title,
+		itemType: item && item.data && item.data.itemType,
+		date: item && item.data && item.data.date,
+		DOI: item && item.data && item.data.DOI
+	} ) );
+	if ( options.json ) {
+		jsonOut( {
+			ok: true,
+			command: 'zotero',
+			stage: 'query',
+			query: q,
+			count: rows.length,
+			results: rows
+		} );
+		return rows;
+	}
+	process.stdout.write( `${ JSON.stringify( rows, null, 2 ) }\n` );
+	return rows;
+}
+
+async function runZoteroDump( options ) {
+	const auth = mergeZoteroAuth( options );
+	requireZoteroLibrary( auth );
+	const limit = Math.max( 1, Math.min( 100, Number.isFinite( options.limit ) ? options.limit : 50 ) );
+	const { url, response, body } = await zoteroApiRequest(
+		auth,
+		`/${ auth.libraryType }/${ encodeURIComponent( auth.libraryId ) }/items`,
+		{
+			format: 'json',
+			include: 'data',
+			limit
+		}
+	);
+	if ( response.statusCode < 200 || response.statusCode >= 300 ) {
+		throw new Error( `Zotero dump failed (${ response.statusCode }) at ${ url }` );
+	}
+	const rows = parseZoteroJsonArray( body, url );
+	if ( options.json ) {
+		jsonOut( {
+			ok: true,
+			command: 'zotero',
+			stage: 'dump',
+			count: rows.length,
+			items: rows
+		} );
+		return rows;
+	}
+	process.stdout.write( `${ JSON.stringify( rows, null, 2 ) }\n` );
+	return rows;
+}
+
+async function runZoteroCite( reference, options ) {
+	const auth = mergeZoteroAuth( options );
+	requireZoteroLibrary( auth );
+	const ref = parseZoteroItemReference( reference, auth );
+	const useAuth = {
+		...auth,
+		libraryType: ref.libraryType,
+		libraryId: ref.libraryId
+	};
+	const { url, response, body } = await zoteroApiRequest(
+		useAuth,
+		`/${ ref.libraryType }/${ encodeURIComponent( ref.libraryId ) }/items/${ encodeURIComponent( ref.itemKey ) }`,
+		{
+			format: 'bibtex'
+		}
+	);
+	if ( response.statusCode === 403 ) {
+		throw new Error( 'Zotero cite failed with 403. Check API key scope and library permissions.' );
+	}
+	if ( response.statusCode === 404 ) {
+		throw new Error( `Zotero item not found: ${ ref.libraryType }/${ ref.libraryId }/${ ref.itemKey }` );
+	}
+	if ( response.statusCode < 200 || response.statusCode >= 300 ) {
+		throw new Error( `Zotero cite failed (${ response.statusCode }) at ${ url }` );
+	}
+	if ( options.json ) {
+		jsonOut( {
+			ok: true,
+			command: 'zotero',
+			stage: 'cite',
+			reference,
+			library_type: ref.libraryType,
+			library_id: ref.libraryId,
+			item_key: ref.itemKey,
+			bibtex: body
+		} );
+		return body;
+	}
+	process.stdout.write( body );
+	if ( !body.endsWith( '\n' ) ) {
+		process.stdout.write( '\n' );
+	}
+	return body;
+}
+
+async function runZoteroCommand( subAction, options ) {
+	const action = String( subAction || '' ).trim().toLowerCase();
+	if ( action === 'login' ) {
+		await runZoteroLogin( options );
+		return;
+	}
+	if ( action === 'logout' ) {
+		await runZoteroLogout( options );
+		return;
+	}
+	if ( action === 'query' ) {
+		const query = options.args.join( ' ' ).trim();
+		await runZoteroQuery( query, options );
+		return;
+	}
+	if ( action === 'dump' ) {
+		await runZoteroDump( options );
+		return;
+	}
+	if ( action === 'cite' ) {
+		const reference = options.args.join( ' ' ).trim();
+		if ( !reference ) {
+			throw new Error( 'zotero cite requires <item-key|zotero-url>' );
+		}
+		await runZoteroCite( reference, options );
+		return;
+	}
+	throw new Error( `Unsupported zotero action: ${ action }` );
 }
 
 function isLikelyPdfUrl( raw ) {
@@ -2184,6 +2565,19 @@ if ( action === 'openurl-resolve' ) {
 	}
 	runOpenUrlResolve( identifier, parsed ).catch( ( error ) => {
 		handleCommandError( error, parsed, 'openurl-resolve' );
+	} );
+	return;
+}
+
+if ( action === 'zotero' ) {
+	const parsed = parseOptions( process.argv.slice( 3 ) );
+	const subAction = parsed.args.shift();
+	if ( !subAction ) {
+		usage();
+		process.exit( 1 );
+	}
+	runZoteroCommand( subAction, parsed ).catch( ( error ) => {
+		handleCommandError( error, parsed, 'zotero', subAction );
 	} );
 	return;
 }

@@ -44,6 +44,39 @@ Available tools:
 - `fetch_pdf` (`identifier`, optional `out`, `base`)
 - `openurl_resolve` (`identifier`, optional `base`)
 
+## Zotero account library
+
+Login once (credentials are saved under `.local/state/zotero-auth.json`):
+
+```bash
+bun run local zotero login --user-id <zotero_user_id> --api-key <zotero_api_key>
+```
+
+Query your library:
+
+```bash
+bun run local zotero query "transformer" --limit 20
+```
+
+Dump library items (JSON):
+
+```bash
+bun run local zotero dump --limit 50
+```
+
+Cite a specific item by key or Zotero URL:
+
+```bash
+bun run local zotero cite AB12CD34
+bun run local zotero cite "https://www.zotero.org/users/<id>/items/AB12CD34"
+```
+
+Logout:
+
+```bash
+bun run local zotero logout
+```
+
 ## Packaging & publish
 Dry-run package contents:
 
