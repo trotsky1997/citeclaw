@@ -43,6 +43,7 @@ const defaultZoteroUserId = process.env.ZOTERO_USER_ID || '';
 const defaultZoteroApiKey = process.env.ZOTERO_API_KEY || '';
 const defaultZoteroLibraryType = process.env.ZOTERO_LIBRARY_TYPE || 'users';
 const defaultZoteroLibraryId = process.env.ZOTERO_LIBRARY_ID || '';
+const defaultS2ApiKey = process.env.S2_API_KEY || '';
 const zoteroAuthPath = path.join( stateDir, 'zotero-auth.json' );
 const cacheRootDir = process.env.LOCAL_CACHE_DIR || path.join( localDir, 'cache' );
 const cacheMetaPath = path.join( cacheRootDir, 'cache-meta.json' );
@@ -62,7 +63,7 @@ function usage() {
 	console.error( '  botcite cite-pdf [--headers] <pdf-path>' );
 	console.error( '  botcite fetch-pdf [--base <openurl-base>] [--out <file.pdf>] <doi|arxiv|url>' );
 	console.error( '  botcite openurl-resolve [--base <openurl-base>] <doi|arxiv|url>' );
-	console.error( '  botcite zotero <login|logout|whoami|query|dump|cite|add|delete|update|note|sync-cite|dedup|enrich|export|watch|templates|safe-mode> [...]' );
+	console.error( '  botcite zotero <login|logout|whoami|query|dump|cite|add|delete|update|note|sync-cite|dedup|enrich|export|watch|templates|safe-mode|crossref|semantic-scholar> [...]' );
 	console.error( '  botcite batch --op <cite|cite-style|fetch-pdf|openurl-resolve> --in <file>' );
 	console.error( '  botcite styles sync [--repo <git-url>]' );
 	console.error( '  botcite cite-style [--plain] [--style <name-or-path>] [--locale zh-CN] <query>' );
@@ -88,6 +89,7 @@ function usage() {
 	console.error( '  --api-key <key>    Zotero API key (or set ZOTERO_API_KEY)' );
 	console.error( '  --library-type     users|groups (default: users)' );
 	console.error( '  --library-id <id>  Zotero library id (group id for groups)' );
+	console.error( '  --s2-api-key <k>   Semantic Scholar API key (optional for higher limits)' );
 	console.error( '  --parent <ref>     parent item key/url (zotero note search)' );
 	console.error( '  --limit <n>        Zotero query/dump limit (1-100)' );
 	console.error( '  -y, --yes          skip interactive confirmation (delete)' );
@@ -220,9 +222,19 @@ function usageZotero( subAction = '' ) {
 		console.error( '  botcite zotero safe-mode <on|off|status>' );
 		return;
 	}
+	if ( action === 'crossref' ) {
+		console.error( 'usage:' );
+		console.error( '  botcite zotero crossref <doi|query> [--limit <n>]' );
+		return;
+	}
+	if ( action === 'semantic-scholar' ) {
+		console.error( 'usage:' );
+		console.error( '  botcite zotero semantic-scholar <doi|arxiv|query> [--limit <n>] [--s2-api-key <k>]' );
+		return;
+	}
 
 	console.error( 'usage:' );
-	console.error( '  botcite zotero <login|logout|whoami|query|dump|cite|add|delete|update|note|sync-cite|dedup|enrich|export|watch|templates|safe-mode> [...]' );
+	console.error( '  botcite zotero <login|logout|whoami|query|dump|cite|add|delete|update|note|sync-cite|dedup|enrich|export|watch|templates|safe-mode|crossref|semantic-scholar> [...]' );
 	console.error( 'commands:' );
 	console.error( '  login   save Zotero API credentials locally' );
 	console.error( '  logout  clear saved credentials' );
@@ -241,6 +253,8 @@ function usageZotero( subAction = '' ) {
 	console.error( '  watch   poll query and append new cites to bib file' );
 	console.error( '  templates show/apply item templates' );
 	console.error( '  safe-mode persistent dry-run guardrail for write ops' );
+	console.error( '  crossref query Crossref API by DOI or text query' );
+	console.error( '  semantic-scholar query Semantic Scholar API by DOI/arXiv/query' );
 	console.error( 'examples:' );
 	console.error( '  botcite zotero login --user-id 123456 --api-key xxxx' );
 	console.error( '  botcite zotero whoami' );
@@ -259,6 +273,8 @@ function usageZotero( subAction = '' ) {
 	console.error( "  botcite zotero watch 'transformer' --out-bib ./watch.bib --interval 60" );
 	console.error( '  botcite zotero templates paper' );
 	console.error( '  botcite zotero safe-mode on' );
+	console.error( '  botcite zotero crossref 10.1038/s41586-020-2649-2' );
+	console.error( "  botcite zotero semantic-scholar '10.1038/s41586-020-2649-2'" );
 	console.error( "  botcite zotero note search 'transformer'" );
 	console.error( "  botcite zotero note search 'transformer' --parent AB12CD34" );
 	console.error( '  botcite zotero delete AB12CD34' );
@@ -780,6 +796,7 @@ function parseOptions( args ) {
 		zoteroApiKey: defaultZoteroApiKey,
 		zoteroLibraryType: defaultZoteroLibraryType,
 		zoteroLibraryId: defaultZoteroLibraryId,
+		s2ApiKey: defaultS2ApiKey,
 		parent: '',
 		limit: 20,
 		intervalSec: 60,
@@ -835,6 +852,9 @@ function parseOptions( args ) {
 			i++;
 		} else if ( arg === '--library-id' || arg === '--zotero-library-id' ) {
 			options.zoteroLibraryId = args[ i + 1 ] || '';
+			i++;
+		} else if ( arg === '--s2-api-key' ) {
+			options.s2ApiKey = args[ i + 1 ] || defaultS2ApiKey;
 			i++;
 		} else if ( arg === '--parent' ) {
 			options.parent = args[ i + 1 ] || '';
@@ -2679,6 +2699,121 @@ async function runZoteroSafeMode(mode, options) {
 	return safeMode;
 }
 
+function mapCrossrefWork(work) {
+	const title = Array.isArray( work.title ) ? work.title[ 0 ] : '';
+	const authors = Array.isArray( work.author ) ? work.author.map( ( a ) => `${ a.given || '' } ${ a.family || '' }`.trim() ).filter( Boolean ) : [];
+	return {
+		doi: work.DOI || '',
+		title: title || '',
+		type: work.type || '',
+		year: work.issued && work.issued[ 'date-parts' ] && work.issued[ 'date-parts' ][ 0 ] ? work.issued[ 'date-parts' ][ 0 ][ 0 ] : null,
+		authors,
+		url: work.URL || '',
+		container_title: Array.isArray( work[ 'container-title' ] ) ? work[ 'container-title' ][ 0 ] || '' : '',
+		publisher: work.publisher || ''
+	};
+}
+
+async function runZoteroCrossref(query, options) {
+	const q = String( query || '' ).trim();
+	if ( !q ) {
+		throw new Error( 'zotero crossref requires <doi|query>' );
+	}
+	const limiter = new HostRateLimiter( 0 );
+	let url;
+	if ( /\b10\.\d{4,9}\/[-._;()/:A-Z0-9]+\b/i.test( q ) ) {
+		const doi = normalizeDoi( q.match( /\b10\.\d{4,9}\/[-._;()/:A-Z0-9]+\b/i )[ 0 ] );
+		url = `https://api.crossref.org/works/${ encodeURIComponent( doi ) }`;
+	} else {
+		const limit = Math.max( 1, Math.min( 20, Number.isFinite( options.limit ) ? options.limit : 5 ) );
+		url = `https://api.crossref.org/works?query.bibliographic=${ encodeURIComponent( q ) }&rows=${ limit }`;
+	}
+	const response = await requestExternal( url, limiter, {
+		headers: {
+			Accept: 'application/json'
+		}
+	} );
+	const body = bodyToText( response );
+	if ( response.statusCode < 200 || response.statusCode >= 300 ) {
+		throw new Error( `crossref request failed (${ response.statusCode })` );
+	}
+	const parsed = JSON.parse( body );
+	const message = parsed && parsed.message ? parsed.message : {};
+	let output;
+	if ( message && message.DOI ) {
+		output = mapCrossrefWork( message );
+	} else {
+		const items = Array.isArray( message.items ) ? message.items : [];
+		output = items.map( mapCrossrefWork );
+	}
+	if ( options.json ) {
+		jsonOut( { ok: true, command: 'zotero', stage: 'crossref', query: q, result: output } );
+		return output;
+	}
+	process.stdout.write( `${ JSON.stringify( output, null, 2 ) }\n` );
+	return output;
+}
+
+function mapSemanticScholarPaper(p) {
+	const authors = Array.isArray( p.authors ) ? p.authors.map( ( a ) => a.name ).filter( Boolean ) : [];
+	return {
+		paperId: p.paperId || '',
+		title: p.title || '',
+		year: p.year || null,
+		venue: p.venue || '',
+		citationCount: Number.isFinite( p.citationCount ) ? p.citationCount : 0,
+		externalIds: p.externalIds || {},
+		url: p.url || '',
+		authors
+	};
+}
+
+async function runZoteroSemanticScholar(query, options) {
+	const q = String( query || '' ).trim();
+	if ( !q ) {
+		throw new Error( 'zotero semantic-scholar requires <doi|arxiv|query>' );
+	}
+	const limiter = new HostRateLimiter( 0 );
+	const headers = {
+		Accept: 'application/json'
+	};
+	const apiKey = String( options.s2ApiKey || defaultS2ApiKey ).trim();
+	if ( apiKey ) {
+		headers[ 'x-api-key' ] = apiKey;
+	}
+	const fields = 'title,year,venue,citationCount,externalIds,authors,url';
+	let url;
+	let mode = 'search';
+	const arxivId = normalizeArxivId( q );
+	const doiMatch = q.match( /\b10\.\d{4,9}\/[-._;()/:A-Z0-9]+\b/i );
+	if ( doiMatch ) {
+		mode = 'paper';
+		const doi = normalizeDoi( doiMatch[ 0 ] );
+		url = `https://api.semanticscholar.org/graph/v1/paper/DOI:${ encodeURIComponent( doi ) }?fields=${ encodeURIComponent( fields ) }`;
+	} else if ( arxivId ) {
+		mode = 'paper';
+		url = `https://api.semanticscholar.org/graph/v1/paper/ARXIV:${ encodeURIComponent( arxivId ) }?fields=${ encodeURIComponent( fields ) }`;
+	} else {
+		const limit = Math.max( 1, Math.min( 20, Number.isFinite( options.limit ) ? options.limit : 5 ) );
+		url = `https://api.semanticscholar.org/graph/v1/paper/search?query=${ encodeURIComponent( q ) }&limit=${ limit }&fields=${ encodeURIComponent( fields ) }`;
+	}
+	const response = await requestExternal( url, limiter, { headers } );
+	const body = bodyToText( response );
+	if ( response.statusCode < 200 || response.statusCode >= 300 ) {
+		throw new Error( `semantic-scholar request failed (${ response.statusCode })` );
+	}
+	const parsed = JSON.parse( body );
+	const output = mode === 'paper' ?
+		mapSemanticScholarPaper( parsed ) :
+		( Array.isArray( parsed.data ) ? parsed.data.map( mapSemanticScholarPaper ) : [] );
+	if ( options.json ) {
+		jsonOut( { ok: true, command: 'zotero', stage: 'semantic-scholar', query: q, result: output } );
+		return output;
+	}
+	process.stdout.write( `${ JSON.stringify( output, null, 2 ) }\n` );
+	return output;
+}
+
 async function runZoteroNoteCiteLinks(query, options) {
 	const auth = mergeZoteroAuth( options );
 	requireZoteroLibrary( auth );
@@ -2903,6 +3038,16 @@ async function runZoteroCommand( subAction, options ) {
 	if ( action === 'safe-mode' ) {
 		const mode = String( options.args[ 0 ] || 'status' ).trim();
 		await runZoteroSafeMode( mode, options );
+		return;
+	}
+	if ( action === 'crossref' ) {
+		const query = options.args.join( ' ' ).trim();
+		await runZoteroCrossref( query, options );
+		return;
+	}
+	if ( action === 'semantic-scholar' ) {
+		const query = options.args.join( ' ' ).trim();
+		await runZoteroSemanticScholar( query, options );
 		return;
 	}
 	throw new Error( `Unsupported zotero action: ${ action }` );

@@ -129,6 +129,12 @@ bun run local zotero templates paper --apply
 
 # watch query and append new cites to bib
 bun run local zotero watch "transformer" --out-bib ./watch.bib --interval 60
+
+# external metadata APIs (zotero-level access)
+bun run local zotero crossref 10.1021/acsomega.2c05310
+bun run local zotero crossref "transformer attention is all you need" --limit 5
+bun run local zotero semantic-scholar 10.1021/acsomega.2c05310
+bun run local zotero semantic-scholar "transformer attention is all you need" --limit 5
 ```
 
 Logout:
