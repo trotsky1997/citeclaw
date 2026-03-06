@@ -62,7 +62,7 @@ function usage() {
 	console.error( '  botcite cite-pdf [--headers] <pdf-path>' );
 	console.error( '  botcite fetch-pdf [--base <openurl-base>] [--out <file.pdf>] <doi|arxiv|url>' );
 	console.error( '  botcite openurl-resolve [--base <openurl-base>] <doi|arxiv|url>' );
-	console.error( '  botcite zotero <login|logout|whoami|query|dump|cite|add|delete|update|note> [...]' );
+	console.error( '  botcite zotero <login|logout|whoami|query|dump|cite|add|delete|update|note|sync-cite|dedup|enrich|export|watch|templates|safe-mode> [...]' );
 	console.error( '  botcite batch --op <cite|cite-style|fetch-pdf|openurl-resolve> --in <file>' );
 	console.error( '  botcite styles sync [--repo <git-url>]' );
 	console.error( '  botcite cite-style [--plain] [--style <name-or-path>] [--locale zh-CN] <query>' );
@@ -175,6 +175,7 @@ function usageZotero( subAction = '' ) {
 		console.error( '  botcite zotero note add <parent-item-key|zotero-url> @./note.html' );
 		console.error( '  botcite zotero note list <parent-item-key|zotero-url> [--limit <1-100>]' );
 		console.error( "  botcite zotero note search <text> [--limit <1-100>] [--parent <item-key|zotero-url>]" );
+		console.error( "  botcite zotero note cite-links [<text-filter>] [--apply] [--parent <item-key|zotero-url>]" );
 		console.error( "  botcite zotero note update <note-key|zotero-url> '<note-html-or-text>'" );
 		console.error( '  botcite zotero note update <note-key|zotero-url> @./note.html' );
 		console.error( '  botcite zotero note delete <note-key|zotero-url>' );
@@ -184,9 +185,44 @@ function usageZotero( subAction = '' ) {
 		console.error( '  - delete requires yes/no confirmation unless -y is provided' );
 		return;
 	}
+	if ( action === 'sync-cite' ) {
+		console.error( 'usage:' );
+		console.error( '  botcite zotero sync-cite [--limit <n>] [--apply] [--dry-run]' );
+		return;
+	}
+	if ( action === 'dedup' ) {
+		console.error( 'usage:' );
+		console.error( '  botcite zotero dedup [--limit <n>]' );
+		return;
+	}
+	if ( action === 'enrich' ) {
+		console.error( 'usage:' );
+		console.error( '  botcite zotero enrich [--limit <n>] [--apply] [--dry-run]' );
+		return;
+	}
+	if ( action === 'export' ) {
+		console.error( 'usage:' );
+		console.error( '  botcite zotero export md [--out <file.md>] [--limit <n>]' );
+		return;
+	}
+	if ( action === 'watch' ) {
+		console.error( 'usage:' );
+		console.error( "  botcite zotero watch <query> [--interval <sec>] [--out-bib <file.bib>] [--limit <n>]" );
+		return;
+	}
+	if ( action === 'templates' ) {
+		console.error( 'usage:' );
+		console.error( '  botcite zotero templates [paper|book|webpage] [--apply]' );
+		return;
+	}
+	if ( action === 'safe-mode' ) {
+		console.error( 'usage:' );
+		console.error( '  botcite zotero safe-mode <on|off|status>' );
+		return;
+	}
 
 	console.error( 'usage:' );
-	console.error( '  botcite zotero <login|logout|whoami|query|dump|cite|add|delete|update|note> [...]' );
+	console.error( '  botcite zotero <login|logout|whoami|query|dump|cite|add|delete|update|note|sync-cite|dedup|enrich|export|watch|templates|safe-mode> [...]' );
 	console.error( 'commands:' );
 	console.error( '  login   save Zotero API credentials locally' );
 	console.error( '  logout  clear saved credentials' );
@@ -198,6 +234,13 @@ function usageZotero( subAction = '' ) {
 	console.error( '  delete  delete one item with version precondition' );
 	console.error( '  update  update one item with strict sanity checks' );
 	console.error( '  note    manage child notes (add/list/update/delete)' );
+	console.error( '  sync-cite fill missing Citation Key in extra field' );
+	console.error( '  dedup   suggest duplicate items by DOI/title+year fingerprint' );
+	console.error( '  enrich  fill missing fields from citoid metadata' );
+	console.error( '  export  export library data (currently md)' );
+	console.error( '  watch   poll query and append new cites to bib file' );
+	console.error( '  templates show/apply item templates' );
+	console.error( '  safe-mode persistent dry-run guardrail for write ops' );
 	console.error( 'examples:' );
 	console.error( '  botcite zotero login --user-id 123456 --api-key xxxx' );
 	console.error( '  botcite zotero whoami' );
@@ -207,6 +250,15 @@ function usageZotero( subAction = '' ) {
 	console.error( "  botcite zotero add '{\"itemType\":\"journalArticle\",\"title\":\"Demo\"}'" );
 	console.error( "  botcite zotero note add AB12CD34 '<p>Important note</p>'" );
 	console.error( '  botcite zotero note list AB12CD34' );
+	console.error( "  botcite zotero note search 'transformer'" );
+	console.error( "  botcite zotero note cite-links 'doi' --apply" );
+	console.error( '  botcite zotero sync-cite --apply' );
+	console.error( '  botcite zotero dedup' );
+	console.error( '  botcite zotero enrich --apply' );
+	console.error( '  botcite zotero export md --out ./library.md' );
+	console.error( "  botcite zotero watch 'transformer' --out-bib ./watch.bib --interval 60" );
+	console.error( '  botcite zotero templates paper' );
+	console.error( '  botcite zotero safe-mode on' );
 	console.error( "  botcite zotero note search 'transformer'" );
 	console.error( "  botcite zotero note search 'transformer' --parent AB12CD34" );
 	console.error( '  botcite zotero delete AB12CD34' );
@@ -730,6 +782,10 @@ function parseOptions( args ) {
 		zoteroLibraryId: defaultZoteroLibraryId,
 		parent: '',
 		limit: 20,
+		intervalSec: 60,
+		outBib: '',
+		apply: false,
+		dryRun: false,
 		yes: false,
 		out: '',
 		op: '',
@@ -787,6 +843,17 @@ function parseOptions( args ) {
 			const raw = args[ i + 1 ];
 			options.limit = parseInt( raw || '20', 10 );
 			i++;
+		} else if ( arg === '--interval' ) {
+			const raw = args[ i + 1 ];
+			options.intervalSec = parseInt( raw || '60', 10 );
+			i++;
+		} else if ( arg === '--out-bib' ) {
+			options.outBib = args[ i + 1 ] || '';
+			i++;
+		} else if ( arg === '--apply' ) {
+			options.apply = true;
+		} else if ( arg === '--dry-run' ) {
+			options.dryRun = true;
 		} else if ( arg === '--yes' || arg === '-y' ) {
 			options.yes = true;
 		} else if ( arg === '--op' ) {
@@ -1264,7 +1331,8 @@ function mergeZoteroAuth(options) {
 		userId: String( options.zoteroUserId || saved.userId || defaultZoteroUserId ).trim(),
 		apiKey: String( options.zoteroApiKey || saved.apiKey || defaultZoteroApiKey ).trim(),
 		libraryType: String( options.zoteroLibraryType || saved.libraryType || defaultZoteroLibraryType ).trim(),
-		libraryId: String( options.zoteroLibraryId || saved.libraryId || defaultZoteroLibraryId ).trim()
+		libraryId: String( options.zoteroLibraryId || saved.libraryId || defaultZoteroLibraryId ).trim(),
+		safeMode: options.dryRun || !!saved.safeMode
 	};
 	merged.libraryType = normalizeZoteroLibraryType( merged.libraryType );
 	if ( merged.libraryType === 'users' && !merged.libraryId ) {
@@ -1274,6 +1342,10 @@ function mergeZoteroAuth(options) {
 		merged.userId = merged.libraryId;
 	}
 	return merged;
+}
+
+function isDryRun(options, auth) {
+	return !!( options && options.dryRun ) || !!( auth && auth.safeMode );
 }
 
 function requireZoteroLibrary( auth ) {
@@ -1880,6 +1952,20 @@ async function runZoteroAddPayload( payload, options ) {
 		throw new Error( 'zotero add requires API key with write permission' );
 	}
 	validateZoteroAddPayload( payload );
+	if ( isDryRun( options, auth ) ) {
+		const preview = {
+			dry_run: true,
+			action: 'zotero-add',
+			library_type: auth.libraryType,
+			library_id: auth.libraryId,
+			itemType: payload.itemType,
+			title: payload.title || ''
+		};
+		if ( options.json ) {
+			jsonOut( { ok: true, command: 'zotero', stage: 'add', ...preview } );
+		}
+		return preview;
+	}
 	const writeToken = crypto.randomBytes( 16 ).toString( 'hex' );
 	const { url, response, body } = await zoteroApiWriteRequest(
 		auth,
@@ -1934,6 +2020,23 @@ async function runZoteroDelete( reference, options ) {
 		libraryType: ref.libraryType,
 		libraryId: ref.libraryId
 	};
+	if ( isDryRun( options, auth ) ) {
+		const preview = {
+			ok: true,
+			command: 'zotero',
+			stage: 'delete',
+			dry_run: true,
+			library_type: ref.libraryType,
+			library_id: ref.libraryId,
+			item_key: ref.itemKey
+		};
+		if ( options.json ) {
+			jsonOut( preview );
+		} else {
+			process.stdout.write( `[dry-run] delete ${ ref.libraryType }/${ ref.libraryId }/${ ref.itemKey }\n` );
+		}
+		return;
+	}
 	const confirmed = await confirmDelete( ref, options );
 	if ( !confirmed ) {
 		if ( options.json ) {
@@ -1997,6 +2100,24 @@ async function runZoteroUpdatePayload( reference, payload, options ) {
 		libraryId: ref.libraryId
 	};
 	validateZoteroUpdatePayload( payload );
+	if ( isDryRun( options, auth ) ) {
+		const preview = {
+			ok: true,
+			command: 'zotero',
+			stage: 'update',
+			dry_run: true,
+			library_type: ref.libraryType,
+			library_id: ref.libraryId,
+			item_key: ref.itemKey,
+			changed_fields: Object.keys( payload )
+		};
+		if ( options.json ) {
+			jsonOut( preview );
+		} else {
+			process.stdout.write( `[dry-run] update ${ ref.itemKey } fields=${ Object.keys( payload ).join( ',' ) }\n` );
+		}
+		return true;
+	}
 	const currentVersion = await fetchZoteroItemVersion( useAuth, ref );
 	if ( !currentVersion ) {
 		throw new Error( 'Could not determine current item version for safe update' );
@@ -2207,6 +2328,435 @@ async function runZoteroNoteDelete( noteReference, options ) {
 	return done;
 }
 
+async function fetchZoteroItems(auth, query = {}) {
+	const limit = Math.max( 1, Math.min( 100, Number.isFinite( query.limit ) ? query.limit : 100 ) );
+	const start = Math.max( 0, Number.isFinite( query.start ) ? query.start : 0 );
+	const { url, response, body } = await zoteroApiRequest(
+		auth,
+		`/${ auth.libraryType }/${ encodeURIComponent( auth.libraryId ) }/items`,
+		{
+			format: 'json',
+			include: 'data',
+			limit,
+			start,
+			q: query.q || '',
+			itemType: query.itemType || ''
+		}
+	);
+	if ( response.statusCode < 200 || response.statusCode >= 300 ) {
+		throw new Error( `Zotero items fetch failed (${ response.statusCode }) at ${ url }` );
+	}
+	return parseZoteroJsonArray( body, url );
+}
+
+async function fetchAllZoteroItems(auth, query = {}) {
+	const totalLimit = Math.max( 1, Math.min( 1000, Number.isFinite( query.totalLimit ) ? query.totalLimit : 300 ) );
+	let start = 0;
+	const chunk = Math.min( 100, totalLimit );
+	let rows = [];
+	while ( rows.length < totalLimit ) {
+		const page = await fetchZoteroItems( auth, {
+			...query,
+			start,
+			limit: Math.min( chunk, totalLimit - rows.length )
+		} );
+		rows = rows.concat( page );
+		if ( page.length < chunk ) {
+			break;
+		}
+		start += page.length;
+	}
+	return rows;
+}
+
+function normalizeDoiLoose(raw) {
+	return String( raw || '' )
+		.trim()
+		.toLowerCase()
+		.replace( /^https?:\/\/(?:dx\.)?doi\.org\//, '' )
+		.replace( /\s+/g, '' );
+}
+
+function makeCitationKeyFromItem( itemData ) {
+	const creators = Array.isArray( itemData.creators ) ? itemData.creators : [];
+	const first = creators[ 0 ] || {};
+	const rawName = first.lastName || first.name || 'item';
+	const author = String( rawName ).toLowerCase().replace( /[^a-z0-9]+/g, '' ).slice( 0, 12 ) || 'item';
+	const yearMatch = String( itemData.date || '' ).match( /\b(19|20)\d{2}\b/ );
+	const year = yearMatch ? yearMatch[ 0 ] : 'nd';
+	const titleToken = String( itemData.title || '' ).toLowerCase()
+		.replace( /[^a-z0-9]+/g, ' ' )
+		.trim()
+		.split( /\s+/ )[ 0 ] || 'work';
+	return `${ author }${ year }${ titleToken }`;
+}
+
+function parseExtraMap(extra) {
+	const map = {};
+	const text = String( extra || '' );
+	text.split( /\r?\n/ ).forEach( ( line ) => {
+		const idx = line.indexOf( ':' );
+		if ( idx > 0 ) {
+			const key = line.slice( 0, idx ).trim().toLowerCase();
+			const value = line.slice( idx + 1 ).trim();
+			if ( key ) {
+				map[ key ] = value;
+			}
+		}
+	} );
+	return map;
+}
+
+function hasCitationKeyInExtra(extra) {
+	const map = parseExtraMap( extra );
+	return !!( map[ 'citation key' ] || map[ 'citationkey' ] );
+}
+
+function withCitationKeyInExtra(extra, key) {
+	const text = String( extra || '' ).trim();
+	const line = `Citation Key: ${ key }`;
+	if ( !text ) {
+		return line;
+	}
+	if ( hasCitationKeyInExtra( text ) ) {
+		return text.replace( /(^|\n)\s*citation\s*key\s*:[^\n]*/i, `$1${ line }` );
+	}
+	return `${ text }\n${ line }`;
+}
+
+function itemFingerprint(data) {
+	const doi = normalizeDoiLoose( data.DOI );
+	if ( doi ) {
+		return `doi:${ doi }`;
+	}
+	const title = String( data.title || '' ).toLowerCase().replace( /[^a-z0-9]+/g, ' ' ).trim();
+	const yearMatch = String( data.date || '' ).match( /\b(19|20)\d{2}\b/ );
+	const year = yearMatch ? yearMatch[ 0 ] : '';
+	return title ? `ty:${ title }|${ year }` : '';
+}
+
+function markdownEscape(text) {
+	return String( text || '' ).replace( /([\\`*_{}\[\]()#+\-.!|])/g, '\\$1' );
+}
+
+function zoteroItemToMarkdown( row ) {
+	const data = row && row.data ? row.data : {};
+	const title = data.title || '(untitled)';
+	const creators = Array.isArray( data.creators ) ? data.creators.map( ( c ) => c.lastName || c.name || '' ).filter( Boolean ).join( ', ' ) : '';
+	const date = data.date || '';
+	const doi = data.DOI || '';
+	const url = data.url || '';
+	const abstract = data.abstractNote || '';
+	let out = `## ${ markdownEscape( title ) }\n`;
+	if ( creators ) out += `- Authors: ${ markdownEscape( creators ) }\n`;
+	if ( date ) out += `- Date: ${ markdownEscape( date ) }\n`;
+	if ( doi ) out += `- DOI: \`${ doi }\`\n`;
+	if ( url ) out += `- URL: ${ url }\n`;
+	if ( abstract ) out += `\n${ markdownEscape( abstract ) }\n`;
+	return out;
+}
+
+function extractTextReferences(text) {
+	const raw = String( text || '' );
+	const doiMatches = raw.match( /\b10\.\d{4,9}\/[-._;()/:A-Z0-9]+\b/ig ) || [];
+	const urlMatches = raw.match( /https?:\/\/[^\s"'<>]+/g ) || [];
+	const arxivMatches = raw.match( /\b\d{4}\.\d{4,5}(?:v\d+)?\b/g ) || [];
+	const refs = uniqueKeepOrder( [ ...doiMatches, ...urlMatches, ...arxivMatches ] );
+	return refs.slice( 0, 12 );
+}
+
+async function runZoteroSyncCite(options) {
+	const auth = mergeZoteroAuth( options );
+	requireZoteroLibrary( auth );
+	const rows = await fetchAllZoteroItems( auth, { totalLimit: options.limit || 200 } );
+	const plans = [];
+	for ( const item of rows ) {
+		const data = item && item.data ? item.data : {};
+		if ( data.itemType === 'note' || data.itemType === 'attachment' ) {
+			continue;
+		}
+		const hasRefSignal = !!( data.DOI || data.url || data.title );
+		if ( !hasRefSignal || hasCitationKeyInExtra( data.extra ) ) {
+			continue;
+		}
+		const key = makeCitationKeyFromItem( data );
+		plans.push( {
+			itemKey: item.key,
+			title: data.title || '',
+			citationKey: key,
+			patch: { extra: withCitationKeyInExtra( data.extra, key ) }
+		} );
+	}
+	if ( isDryRun( options, auth ) || !options.apply ) {
+		if ( options.json ) {
+			jsonOut( { ok: true, command: 'zotero', stage: 'sync-cite', dry_run: true, count: plans.length, plans } );
+		} else {
+			process.stdout.write( `${ JSON.stringify( plans, null, 2 ) }\n` );
+		}
+		return plans;
+	}
+	const applied = [];
+	for ( const plan of plans ) {
+		await runZoteroUpdatePayload( plan.itemKey, plan.patch, { ...options, json: false, dryRun: false } );
+		applied.push( { itemKey: plan.itemKey, citationKey: plan.citationKey } );
+	}
+	if ( options.json ) {
+		jsonOut( { ok: true, command: 'zotero', stage: 'sync-cite', dry_run: false, applied_count: applied.length, applied } );
+	} else {
+		process.stdout.write( `${ JSON.stringify( applied, null, 2 ) }\n` );
+	}
+	return applied;
+}
+
+async function runZoteroDedup(options) {
+	const auth = mergeZoteroAuth( options );
+	requireZoteroLibrary( auth );
+	const rows = await fetchAllZoteroItems( auth, { totalLimit: options.limit || 400 } );
+	const groups = new Map();
+	rows.forEach( ( item ) => {
+		const fp = itemFingerprint( item && item.data || {} );
+		if ( !fp ) {
+			return;
+		}
+		if ( !groups.has( fp ) ) {
+			groups.set( fp, [] );
+		}
+		groups.get( fp ).push( {
+			key: item.key,
+			title: item.data && item.data.title || '',
+			date: item.data && item.data.date || '',
+			DOI: item.data && item.data.DOI || ''
+		} );
+	} );
+	const duplicates = Array.from( groups.entries() )
+		.filter( ( [ , list ] ) => list.length > 1 )
+		.map( ( [ fp, list ] ) => ( {
+			fingerprint: fp,
+			keep: list[ 0 ].key,
+			candidates: list.slice( 1 ).map( ( x ) => x.key ),
+			items: list
+		} ) );
+	if ( options.json ) {
+		jsonOut( { ok: true, command: 'zotero', stage: 'dedup', count: duplicates.length, duplicates } );
+	} else {
+		process.stdout.write( `${ JSON.stringify( duplicates, null, 2 ) }\n` );
+	}
+	return duplicates;
+}
+
+async function runZoteroExportMd(options) {
+	const auth = mergeZoteroAuth( options );
+	requireZoteroLibrary( auth );
+	const rows = await fetchAllZoteroItems( auth, { totalLimit: options.limit || 100 } );
+	let md = '# Zotero Export\n\n';
+	rows.forEach( ( row ) => {
+		md += `${ zoteroItemToMarkdown( row ) }\n\n`;
+	} );
+	if ( options.out ) {
+		const outPath = path.resolve( options.out );
+		ensurePdfOutputDir( outPath );
+		fs.writeFileSync( outPath, md );
+		if ( options.json ) {
+			jsonOut( { ok: true, command: 'zotero', stage: 'export-md', out_path: outPath, count: rows.length } );
+			return outPath;
+		}
+		process.stdout.write( `${ outPath }\n` );
+		return outPath;
+	}
+	process.stdout.write( md );
+	return md;
+}
+
+async function runZoteroEnrich(options) {
+	const auth = mergeZoteroAuth( options );
+	requireZoteroLibrary( auth );
+	const rows = await fetchAllZoteroItems( auth, { totalLimit: options.limit || 50 } );
+	const plans = [];
+	for ( const item of rows ) {
+		const data = item && item.data ? item.data : {};
+		const query = data.DOI || data.url || data.title;
+		if ( !query ) {
+			continue;
+		}
+		if ( data.abstractNote && data.pages && data.publicationTitle ) {
+			continue;
+		}
+		try {
+			const response = await withRunningServices( ( ctx ) => httpGet(
+				`http://127.0.0.1:${ ctx.citoidPort }/zotero/${ encodeURIComponent( query ) }`
+			) );
+			const parsed = JSON.parse( response.body );
+			if ( Array.isArray( parsed ) && parsed.length ) {
+				const src = parsed[ 0 ];
+				const patch = {};
+				if ( !data.abstractNote && src.abstractNote ) patch.abstractNote = src.abstractNote;
+				if ( !data.publicationTitle && src.publicationTitle ) patch.publicationTitle = src.publicationTitle;
+				if ( !data.pages && src.pages ) patch.pages = src.pages;
+				if ( !data.volume && src.volume ) patch.volume = src.volume;
+				if ( !data.issue && src.issue ) patch.issue = src.issue;
+				if ( !data.date && src.date ) patch.date = src.date;
+				if ( !data.DOI && src.DOI ) patch.DOI = src.DOI;
+				if ( Object.keys( patch ).length ) {
+					plans.push( { itemKey: item.key, patch } );
+				}
+			}
+		} catch ( error ) {
+		}
+	}
+	if ( isDryRun( options, auth ) || !options.apply ) {
+		if ( options.json ) {
+			jsonOut( { ok: true, command: 'zotero', stage: 'enrich', dry_run: true, count: plans.length, plans } );
+		} else {
+			process.stdout.write( `${ JSON.stringify( plans, null, 2 ) }\n` );
+		}
+		return plans;
+	}
+	const applied = [];
+	for ( const plan of plans ) {
+		await runZoteroUpdatePayload( plan.itemKey, plan.patch, { ...options, json: false, dryRun: false } );
+		applied.push( plan.itemKey );
+	}
+	if ( options.json ) {
+		jsonOut( { ok: true, command: 'zotero', stage: 'enrich', dry_run: false, applied_count: applied.length, applied } );
+	} else {
+		process.stdout.write( `${ JSON.stringify( applied, null, 2 ) }\n` );
+	}
+	return applied;
+}
+
+async function runZoteroTemplates(name, options) {
+	const templates = {
+		paper: { itemType: 'journalArticle', title: '', creators: [], publicationTitle: '', date: '', DOI: '', url: '' },
+		book: { itemType: 'book', title: '', creators: [], publisher: '', place: '', date: '', ISBN: '' },
+		webpage: { itemType: 'webpage', title: '', creators: [], websiteTitle: '', url: '', date: '' }
+	};
+	const picked = String( name || '' ).trim().toLowerCase();
+	if ( picked ) {
+		const template = templates[ picked ];
+		if ( !template ) {
+			throw new Error( `Unknown template: ${ picked }` );
+		}
+		if ( options.apply ) {
+			await runZoteroAddPayload( template, options );
+			return template;
+		}
+		process.stdout.write( `${ JSON.stringify( template, null, 2 ) }\n` );
+		return template;
+	}
+	if ( options.json ) {
+		jsonOut( { ok: true, command: 'zotero', stage: 'templates', templates } );
+		return templates;
+	}
+	process.stdout.write( `${ JSON.stringify( templates, null, 2 ) }\n` );
+	return templates;
+}
+
+async function runZoteroSafeMode(mode, options) {
+	const auth = mergeZoteroAuth( options );
+	const action = String( mode || '' ).trim().toLowerCase();
+	let safeMode = !!auth.safeMode;
+	if ( action === 'on' ) {
+		safeMode = true;
+	} else if ( action === 'off' ) {
+		safeMode = false;
+	} else if ( action !== 'status' && action !== '' ) {
+		throw new Error( 'safe-mode supports: on | off | status' );
+	}
+	saveZoteroAuth( {
+		apiBase: auth.apiBase,
+		userId: auth.userId,
+		apiKey: auth.apiKey,
+		libraryType: auth.libraryType,
+		libraryId: auth.libraryId,
+		safeMode,
+		savedAt: new Date().toISOString()
+	} );
+	if ( options.json ) {
+		jsonOut( { ok: true, command: 'zotero', stage: 'safe-mode', safe_mode: safeMode } );
+		return safeMode;
+	}
+	process.stdout.write( `safe-mode: ${ safeMode ? 'on' : 'off' }\n` );
+	return safeMode;
+}
+
+async function runZoteroNoteCiteLinks(query, options) {
+	const auth = mergeZoteroAuth( options );
+	requireZoteroLibrary( auth );
+	const q = String( query || '' ).trim();
+	let normalizedNotes;
+	if ( options.parent ) {
+		const parent = parseZoteroItemReference( options.parent, auth );
+		const useAuth = { ...auth, libraryType: parent.libraryType, libraryId: parent.libraryId };
+		const rows = await fetchZoteroItems( useAuth, { limit: Math.max( 1, Math.min( 100, options.limit || 100 ) ) } );
+		normalizedNotes = rows
+			.filter( ( item ) => item && item.data && item.data.itemType === 'note' && item.data.parentItem === parent.itemKey )
+			.map( ( item ) => ( { key: item.key, note: item.data.note || '' } ) );
+	} else {
+		const rows = await fetchAllZoteroItems( auth, { itemType: 'note', totalLimit: options.limit || 100 } );
+		normalizedNotes = rows.map( ( item ) => ( { key: item.key, note: item.data && item.data.note || '' } ) );
+	}
+	const plans = [];
+	for ( const n of normalizedNotes ) {
+		const key = n.key || n.itemKey;
+		const rawNote = n.note || ( n.data && n.data.note ) || '';
+		const refs = extractTextReferences( rawNote ).filter( ( ref ) => !q || ref.toLowerCase().includes( q.toLowerCase() ) );
+		if ( !refs.length ) continue;
+		const bib = [];
+		for ( const ref of refs.slice( 0, 3 ) ) {
+			try {
+				const result = await runCitation( 'bibtex', ref, { json: false, silent: true, cacheTtlSec: options.cacheTtlSec || defaultCacheTtlSec } );
+				bib.push( result.body.trim() );
+			} catch ( error ) {
+			}
+		}
+		if ( !bib.length ) continue;
+		const appendix = `\n\n<p><strong>Auto citations</strong></p>\n<pre>${ escapeHtml( bib.join( '\n\n' ) ) }</pre>`;
+		plans.push( { noteKey: key, patch: { note: `${ rawNote }${ appendix }` }, refs } );
+	}
+	if ( isDryRun( options, auth ) || !options.apply ) {
+		if ( options.json ) jsonOut( { ok: true, command: 'zotero', stage: 'note-cite-links', dry_run: true, count: plans.length, plans } );
+		else process.stdout.write( `${ JSON.stringify( plans, null, 2 ) }\n` );
+		return plans;
+	}
+	const applied = [];
+	for ( const plan of plans ) {
+		await runZoteroUpdatePayload( plan.noteKey, plan.patch, { ...options, json: false, dryRun: false } );
+		applied.push( plan.noteKey );
+	}
+	if ( options.json ) jsonOut( { ok: true, command: 'zotero', stage: 'note-cite-links', dry_run: false, applied_count: applied.length, applied } );
+	else process.stdout.write( `${ JSON.stringify( applied, null, 2 ) }\n` );
+	return applied;
+}
+
+async function runZoteroWatch(query, options) {
+	const auth = mergeZoteroAuth( options );
+	requireZoteroLibrary( auth );
+	const q = String( query || '' ).trim();
+	if ( !q ) {
+		throw new Error( 'zotero watch requires query text' );
+	}
+	const intervalMs = Math.max( 5, Number.isFinite( options.intervalSec ) ? options.intervalSec : 60 ) * 1000;
+	const outBibPath = path.resolve( options.outBib || 'zotero-watch.bib' );
+	const seen = new Set();
+	process.stdout.write( `watching query=\"${ q }\" every ${ Math.round( intervalMs / 1000 ) }s -> ${ outBibPath }\n` );
+	while ( true ) {
+		const rows = await fetchZoteroItems( auth, { q, limit: Math.max( 1, Math.min( 100, options.limit || 20 ) ) } );
+		for ( const item of rows ) {
+			if ( seen.has( item.key ) ) continue;
+			seen.add( item.key );
+			try {
+				const bib = await runZoteroCite( item.key, { ...options, json: false, silent: true } );
+				ensurePdfOutputDir( outBibPath );
+				fs.appendFileSync( outBibPath, `${ bib.trim() }\n\n` );
+				process.stdout.write( `[watch] appended ${ item.key }\n` );
+			} catch ( error ) {
+				process.stderr.write( `[watch] cite failed for ${ item.key }: ${ error.message }\n` );
+			}
+		}
+		await sleep( intervalMs );
+	}
+}
+
 async function runZoteroNoteCommand( options ) {
 	const action = String( options.args.shift() || '' ).trim().toLowerCase();
 	if ( !action ) {
@@ -2228,6 +2778,11 @@ async function runZoteroNoteCommand( options ) {
 			throw new Error( 'zotero note list requires <parent-item-key|zotero-url>' );
 		}
 		await runZoteroNoteList( parentRef, options );
+		return;
+	}
+	if ( action === 'cite-links' ) {
+		const q = options.args.join( ' ' ).trim();
+		await runZoteroNoteCiteLinks( q, options );
 		return;
 	}
 	if ( action === 'search' ) {
@@ -2313,6 +2868,41 @@ async function runZoteroCommand( subAction, options ) {
 	}
 	if ( action === 'note' ) {
 		await runZoteroNoteCommand( options );
+		return;
+	}
+	if ( action === 'sync-cite' ) {
+		await runZoteroSyncCite( options );
+		return;
+	}
+	if ( action === 'dedup' ) {
+		await runZoteroDedup( options );
+		return;
+	}
+	if ( action === 'enrich' ) {
+		await runZoteroEnrich( options );
+		return;
+	}
+	if ( action === 'export' ) {
+		const format = String( options.args.shift() || '' ).trim().toLowerCase();
+		if ( format !== 'md' ) {
+			throw new Error( 'zotero export currently supports only: md' );
+		}
+		await runZoteroExportMd( options );
+		return;
+	}
+	if ( action === 'watch' ) {
+		const query = options.args.join( ' ' ).trim();
+		await runZoteroWatch( query, options );
+		return;
+	}
+	if ( action === 'templates' ) {
+		const name = String( options.args[ 0 ] || '' ).trim();
+		await runZoteroTemplates( name, options );
+		return;
+	}
+	if ( action === 'safe-mode' ) {
+		const mode = String( options.args[ 0 ] || 'status' ).trim();
+		await runZoteroSafeMode( mode, options );
 		return;
 	}
 	throw new Error( `Unsupported zotero action: ${ action }` );

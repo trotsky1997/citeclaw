@@ -101,6 +101,36 @@ Write-safety notes:
 - `delete` requires typing `yes` unless `-y/--yes` is passed.
 - `note add/update` accept HTML or plain text; plain text is auto-wrapped into safe HTML.
 
+Advanced Zotero workflows:
+
+```bash
+# persistent dry-run guardrail
+bun run local zotero safe-mode on
+bun run local zotero safe-mode status
+
+# fill missing "Citation Key" in extra field
+bun run local zotero sync-cite --apply
+
+# detect possible duplicates
+bun run local zotero dedup --limit 300
+
+# enrich incomplete records (metadata backfill)
+bun run local zotero enrich --apply
+
+# export library to Markdown
+bun run local zotero export md --out ./library.md
+
+# note reference automation
+bun run local zotero note cite-links "doi" --apply
+
+# item templates
+bun run local zotero templates paper
+bun run local zotero templates paper --apply
+
+# watch query and append new cites to bib
+bun run local zotero watch "transformer" --out-bib ./watch.bib --interval 60
+```
+
 Logout:
 
 ```bash
