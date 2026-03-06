@@ -49,6 +49,8 @@ Available tools:
 Login once (credentials are saved under `.local/state/zotero-auth.json`):
 
 ```bash
+bun run local zotero whoami --api-key <zotero_api_key>
+bun run local zotero login --api-key <zotero_api_key>
 bun run local zotero login --user-id <zotero_user_id> --api-key <zotero_api_key>
 ```
 
@@ -70,6 +72,21 @@ Cite a specific item by key or Zotero URL:
 bun run local zotero cite AB12CD34
 bun run local zotero cite "https://www.zotero.org/users/<id>/items/AB12CD34"
 ```
+
+Write operations (strict sanity checks enabled):
+
+```bash
+bun run local zotero add '{"itemType":"journalArticle","title":"Demo"}'
+bun run local zotero update AB12CD34 '{"title":"Updated title"}'
+bun run local zotero delete AB12CD34
+bun run local zotero delete -y AB12CD34
+```
+
+Write-safety notes:
+- API key must have write permissions.
+- `update` rejects reserved fields (`key`, `version`, `libraryID`, `itemType`, `links`, `meta`).
+- `delete` / `update` use item-version preconditions to avoid stale writes.
+- `delete` requires typing `yes` unless `-y/--yes` is passed.
 
 Logout:
 

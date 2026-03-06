@@ -8,6 +8,7 @@ const path = require( 'path' );
 const net = require( 'net' );
 const http = require( 'http' );
 const https = require( 'https' );
+const readline = require( 'readline' );
 const crypto = require( 'crypto' );
 const { spawn, spawnSync } = require( 'child_process' );
 const BBPromise = require( 'bluebird' );
@@ -61,7 +62,7 @@ function usage() {
 	console.error( '  botcite cite-pdf [--headers] <pdf-path>' );
 	console.error( '  botcite fetch-pdf [--base <openurl-base>] [--out <file.pdf>] <doi|arxiv|url>' );
 	console.error( '  botcite openurl-resolve [--base <openurl-base>] <doi|arxiv|url>' );
-	console.error( '  botcite zotero <login|logout|query|dump|cite> [...]' );
+	console.error( '  botcite zotero <login|logout|whoami|query|dump|cite|add|delete|update> [...]' );
 	console.error( '  botcite batch --op <cite|cite-style|fetch-pdf|openurl-resolve> --in <file>' );
 	console.error( '  botcite styles sync [--repo <git-url>]' );
 	console.error( '  botcite cite-style [--plain] [--style <name-or-path>] [--locale zh-CN] <query>' );
@@ -77,6 +78,7 @@ function usage() {
 	console.error( '  botcite fetch-pdf 1706.03762 --out ./attention.pdf' );
 	console.error( "  botcite openurl-resolve --base 'https://example.edu/openurl' 10.1038/s41586-020-2649-2" );
 	console.error( '  botcite zotero login --user-id 123456 --api-key xxxx' );
+	console.error( '  botcite zotero whoami' );
 	console.error( "  botcite zotero query 'transformer'" );
 	console.error( '  botcite zotero cite AB12CD34' );
 	console.error( '  botcite batch --op cite --format bibtex --in ./ids.txt --out-jsonl ./result.jsonl' );
@@ -87,6 +89,7 @@ function usage() {
 	console.error( '  --library-type     users|groups (default: users)' );
 	console.error( '  --library-id <id>  Zotero library id (group id for groups)' );
 	console.error( '  --limit <n>        Zotero query/dump limit (1-100)' );
+	console.error( '  -y, --yes          skip interactive confirmation (delete)' );
 	console.error( '  --profile          print timing diagnostics to stderr' );
 	console.error( '  botcite styles sync' );
 	console.error( "  botcite cite-style --locale zh-CN '10.1145/3368089.3409741'" );
@@ -112,6 +115,14 @@ function usageZotero( subAction = '' ) {
 		console.error( '  - removes local credentials from .local/state/zotero-auth.json' );
 		return;
 	}
+	if ( action === 'whoami' ) {
+		console.error( 'usage:' );
+		console.error( '  botcite zotero whoami [--api-key <key>] [--zotero-api-base <url>]' );
+		console.error( 'notes:' );
+		console.error( '  - reads account identity from /keys/current' );
+		console.error( '  - useful for discovering user-id from an API key' );
+		return;
+	}
 	if ( action === 'query' ) {
 		console.error( 'usage:' );
 		console.error( "  botcite zotero query <text> [--limit <1-100>]" );
@@ -130,20 +141,55 @@ function usageZotero( subAction = '' ) {
 		console.error( '  botcite zotero cite https://www.zotero.org/users/123/items/AB12CD34' );
 		return;
 	}
+	if ( action === 'add' ) {
+		console.error( 'usage:' );
+		console.error( "  botcite zotero add '<json>'" );
+		console.error( '  botcite zotero add @./item.json' );
+		console.error( 'notes:' );
+		console.error( '  - strict sanity checks are applied before write' );
+		console.error( '  - payload must include itemType' );
+		return;
+	}
+	if ( action === 'delete' ) {
+		console.error( 'usage:' );
+		console.error( '  botcite zotero delete <item-key|zotero-url>' );
+		console.error( '  botcite zotero delete -y <item-key|zotero-url>' );
+		console.error( 'notes:' );
+		console.error( '  - uses item version precondition to prevent stale delete' );
+		console.error( '  - default requires interactive confirmation: type \"yes\" to continue' );
+		return;
+	}
+	if ( action === 'update' ) {
+		console.error( 'usage:' );
+		console.error( "  botcite zotero update <item-key|zotero-url> '<json-patch>'" );
+		console.error( '  botcite zotero update <item-key|zotero-url> @./patch.json' );
+		console.error( 'notes:' );
+		console.error( '  - strict sanity checks are applied before write' );
+		console.error( '  - key/version/library fields are rejected in patch payload' );
+		return;
+	}
 
 	console.error( 'usage:' );
-	console.error( '  botcite zotero <login|logout|query|dump|cite> [...]' );
+	console.error( '  botcite zotero <login|logout|whoami|query|dump|cite|add|delete|update> [...]' );
 	console.error( 'commands:' );
 	console.error( '  login   save Zotero API credentials locally' );
 	console.error( '  logout  clear saved credentials' );
+	console.error( '  whoami  show account identity from current API key' );
 	console.error( '  query   full-text search in configured library' );
 	console.error( '  dump    list library items as JSON' );
 	console.error( '  cite    fetch BibTeX for one item' );
+	console.error( '  add     add one item with strict sanity checks' );
+	console.error( '  delete  delete one item with version precondition' );
+	console.error( '  update  update one item with strict sanity checks' );
 	console.error( 'examples:' );
 	console.error( '  botcite zotero login --user-id 123456 --api-key xxxx' );
+	console.error( '  botcite zotero whoami' );
 	console.error( "  botcite zotero query 'transformer'" );
 	console.error( '  botcite zotero dump --limit 10' );
 	console.error( '  botcite zotero cite AB12CD34' );
+	console.error( "  botcite zotero add '{\"itemType\":\"journalArticle\",\"title\":\"Demo\"}'" );
+	console.error( '  botcite zotero delete AB12CD34' );
+	console.error( "  botcite zotero update AB12CD34 '{\"title\":\"New title\"}'" );
 	console.error( 'help:' );
 	console.error( '  botcite zotero login --help' );
 }
@@ -662,6 +708,7 @@ function parseOptions( args ) {
 		zoteroLibraryType: defaultZoteroLibraryType,
 		zoteroLibraryId: defaultZoteroLibraryId,
 		limit: 20,
+		yes: false,
 		out: '',
 		op: '',
 		in: '',
@@ -715,6 +762,8 @@ function parseOptions( args ) {
 			const raw = args[ i + 1 ];
 			options.limit = parseInt( raw || '20', 10 );
 			i++;
+		} else if ( arg === '--yes' || arg === '-y' ) {
+			options.yes = true;
 		} else if ( arg === '--op' ) {
 			options.op = args[ i + 1 ] || '';
 			i++;
@@ -1307,14 +1356,297 @@ function stripToSafeAuthView( auth ) {
 		api_base: auth.apiBase,
 		library_type: auth.libraryType,
 		library_id: auth.libraryId,
+		user_id: auth.userId || '',
 		has_api_key: !!auth.apiKey
 	};
+}
+
+function parseJsonInputArg( rawInput, label ) {
+	const raw = String( rawInput || '' ).trim();
+	if ( !raw ) {
+		throw new Error( `Missing JSON payload for zotero ${ label }` );
+	}
+	let text = raw;
+	if ( raw.startsWith( '@' ) ) {
+		const filePath = path.resolve( raw.slice( 1 ) );
+		if ( !fileExists( filePath ) ) {
+			throw new Error( `Payload file not found: ${ filePath }` );
+		}
+		text = fs.readFileSync( filePath, 'utf8' );
+	}
+	try {
+		return JSON.parse( text );
+	} catch ( error ) {
+		throw new Error( `Invalid JSON for zotero ${ label }: ${ error.message }` );
+	}
+}
+
+function ensurePlainObject( value, label ) {
+	if ( !value || typeof value !== 'object' || Array.isArray( value ) ) {
+		throw new Error( `${ label } must be a JSON object` );
+	}
+}
+
+function validateJsonNode( value, pathLabel, depth = 0 ) {
+	if ( depth > 20 ) {
+		throw new Error( `Payload is too deeply nested at ${ pathLabel }` );
+	}
+	if ( value === null ) {
+		return;
+	}
+	const type = typeof value;
+	if ( type === 'string' ) {
+		if ( value.length > 20000 ) {
+			throw new Error( `String too long at ${ pathLabel }` );
+		}
+		if ( /[\u0000-\u0008\u000B\u000C\u000E-\u001F]/.test( value ) ) {
+			throw new Error( `Control characters are not allowed at ${ pathLabel }` );
+		}
+		return;
+	}
+	if ( type === 'number' ) {
+		if ( !Number.isFinite( value ) ) {
+			throw new Error( `Non-finite number at ${ pathLabel }` );
+		}
+		return;
+	}
+	if ( type === 'boolean' ) {
+		return;
+	}
+	if ( Array.isArray( value ) ) {
+		if ( value.length > 2000 ) {
+			throw new Error( `Array too large at ${ pathLabel }` );
+		}
+		value.forEach( ( item, index ) => {
+			validateJsonNode( item, `${ pathLabel }[${ index }]`, depth + 1 );
+		} );
+		return;
+	}
+	if ( type === 'object' ) {
+		Object.entries( value ).forEach( ( [ key, item ] ) => {
+			validateJsonNode( item, `${ pathLabel }.${ key }`, depth + 1 );
+		} );
+		return;
+	}
+	throw new Error( `Unsupported value type at ${ pathLabel }` );
+}
+
+function validateCreatorsField( creators, label ) {
+	if ( creators === undefined ) {
+		return;
+	}
+	if ( !Array.isArray( creators ) ) {
+		throw new Error( `${ label }.creators must be an array` );
+	}
+	creators.forEach( ( creator, index ) => {
+		ensurePlainObject( creator, `${ label }.creators[${ index }]` );
+		const hasName = typeof creator.name === 'string' && creator.name.trim();
+		const hasLast = typeof creator.lastName === 'string' && creator.lastName.trim();
+		if ( !hasName && !hasLast ) {
+			throw new Error( `${ label }.creators[${ index }] needs name or lastName` );
+		}
+		if ( creator.creatorType && typeof creator.creatorType !== 'string' ) {
+			throw new Error( `${ label }.creators[${ index }].creatorType must be string` );
+		}
+	} );
+}
+
+function validateTagsField( tags, label ) {
+	if ( tags === undefined ) {
+		return;
+	}
+	if ( !Array.isArray( tags ) ) {
+		throw new Error( `${ label }.tags must be an array` );
+	}
+	tags.forEach( ( tag, index ) => {
+		if ( typeof tag === 'string' ) {
+			return;
+		}
+		ensurePlainObject( tag, `${ label }.tags[${ index }]` );
+		if ( typeof tag.tag !== 'string' || !tag.tag.trim() ) {
+			throw new Error( `${ label }.tags[${ index }].tag must be non-empty string` );
+		}
+	} );
+}
+
+function validateCollectionsField( collections, label ) {
+	if ( collections === undefined ) {
+		return;
+	}
+	if ( !Array.isArray( collections ) ) {
+		throw new Error( `${ label }.collections must be an array` );
+	}
+	collections.forEach( ( key, index ) => {
+		if ( typeof key !== 'string' || !/^[A-Z0-9]{8}$/i.test( key ) ) {
+			throw new Error( `${ label }.collections[${ index }] must be an 8-char collection key` );
+		}
+	} );
+}
+
+function validateRelationsField( relations, label ) {
+	if ( relations === undefined ) {
+		return;
+	}
+	ensurePlainObject( relations, `${ label }.relations` );
+	Object.entries( relations ).forEach( ( [ relKey, relVal ] ) => {
+		if ( typeof relVal === 'string' ) {
+			return;
+		}
+		if ( Array.isArray( relVal ) && relVal.every( ( x ) => typeof x === 'string' ) ) {
+			return;
+		}
+		throw new Error( `${ label }.relations.${ relKey } must be string or string[]` );
+	} );
+}
+
+function validateZoteroAddPayload( payload ) {
+	ensurePlainObject( payload, 'zotero add payload' );
+	validateJsonNode( payload, 'payload' );
+	const serialized = JSON.stringify( payload );
+	if ( serialized.length > 300000 ) {
+		throw new Error( 'zotero add payload is too large' );
+	}
+	const blocked = [ 'key', 'version', 'libraryID', 'links', 'meta' ];
+	blocked.forEach( ( key ) => {
+		if ( Object.prototype.hasOwnProperty.call( payload, key ) ) {
+			throw new Error( `zotero add payload cannot include reserved field: ${ key }` );
+		}
+	} );
+	if ( typeof payload.itemType !== 'string' || !payload.itemType.trim() ) {
+		throw new Error( 'zotero add payload requires non-empty itemType' );
+	}
+	validateCreatorsField( payload.creators, 'payload' );
+	validateTagsField( payload.tags, 'payload' );
+	validateCollectionsField( payload.collections, 'payload' );
+	validateRelationsField( payload.relations, 'payload' );
+}
+
+function validateZoteroUpdatePayload( payload ) {
+	ensurePlainObject( payload, 'zotero update payload' );
+	validateJsonNode( payload, 'payload' );
+	const serialized = JSON.stringify( payload );
+	if ( serialized.length > 200000 ) {
+		throw new Error( 'zotero update payload is too large' );
+	}
+	const blocked = [ 'key', 'version', 'libraryID', 'itemType', 'links', 'meta' ];
+	blocked.forEach( ( key ) => {
+		if ( Object.prototype.hasOwnProperty.call( payload, key ) ) {
+			throw new Error( `zotero update payload cannot include reserved field: ${ key }` );
+		}
+	} );
+	if ( Object.keys( payload ).length === 0 ) {
+		throw new Error( 'zotero update payload must update at least one field' );
+	}
+	validateCreatorsField( payload.creators, 'payload' );
+	validateTagsField( payload.tags, 'payload' );
+	validateCollectionsField( payload.collections, 'payload' );
+	validateRelationsField( payload.relations, 'payload' );
+}
+
+async function zoteroApiWriteRequest( auth, method, pathname, payload, extraHeaders = {} ) {
+	const url = buildZoteroApiUrl( auth, pathname );
+	const headers = {
+		Accept: 'application/json, text/plain;q=0.9, */*;q=0.1',
+		'Content-Type': 'application/json',
+		...extraHeaders
+	};
+	if ( auth.apiKey ) {
+		headers[ 'Zotero-API-Key' ] = auth.apiKey;
+	}
+	const bodyText = payload === undefined ? '' : JSON.stringify( payload );
+	const limiter = new HostRateLimiter( 0 );
+	const response = await requestExternal( url, limiter, {
+		method,
+		headers,
+		bodyText
+	} );
+	return {
+		url,
+		response,
+		body: bodyToText( response )
+	};
+}
+
+async function fetchZoteroItemVersion( auth, ref ) {
+	const { response, body } = await zoteroApiRequest(
+		auth,
+		`/${ ref.libraryType }/${ encodeURIComponent( ref.libraryId ) }/items/${ encodeURIComponent( ref.itemKey ) }`,
+		{ format: 'json' }
+	);
+	if ( response.statusCode === 404 ) {
+		throw new Error( `Zotero item not found: ${ ref.libraryType }/${ ref.libraryId }/${ ref.itemKey }` );
+	}
+	if ( response.statusCode < 200 || response.statusCode >= 300 ) {
+		throw new Error( `Failed to read item version (${ response.statusCode })` );
+	}
+	const headerVersion = String( response.headers[ 'last-modified-version' ] || '' ).trim();
+	if ( headerVersion ) {
+		return headerVersion;
+	}
+	try {
+		const parsed = JSON.parse( body );
+		const candidate = parsed && parsed.data && parsed.data.version;
+		return candidate ? String( candidate ) : '';
+	} catch ( error ) {
+		return '';
+	}
+}
+
+async function confirmDelete(ref, options) {
+	if ( options.yes ) {
+		return true;
+	}
+	if ( !process.stdin.isTTY ) {
+		throw new Error( 'Delete requires interactive confirmation. Re-run with -y/--yes in non-interactive mode.' );
+	}
+	const prompt = `Delete Zotero item ${ ref.libraryType }/${ ref.libraryId }/${ ref.itemKey }? (yes/no): `;
+	return new Promise( ( resolve ) => {
+		const rl = readline.createInterface( {
+			input: process.stdin,
+			output: process.stdout
+		} );
+		rl.question( prompt, ( answer ) => {
+			rl.close();
+			resolve( String( answer || '' ).trim().toLowerCase() === 'yes' );
+		} );
+	} );
+}
+
+async function fetchZoteroKeyInfo( auth ) {
+	if ( !auth.apiKey ) {
+		throw new Error( 'Missing Zotero API key. Pass --api-key or set ZOTERO_API_KEY.' );
+	}
+	const { url, response, body } = await zoteroApiRequest( auth, '/keys/current', { format: 'json' } );
+	if ( response.statusCode === 403 ) {
+		throw new Error( 'Zotero key check failed with 403. Verify API key and permissions.' );
+	}
+	if ( response.statusCode < 200 || response.statusCode >= 300 ) {
+		throw new Error( `Zotero key check failed (${ response.statusCode }) at ${ url }` );
+	}
+	let parsed;
+	try {
+		parsed = JSON.parse( body );
+	} catch ( error ) {
+		throw new Error( `Invalid JSON from Zotero key check: ${ error.message }` );
+	}
+	const userID = String( parsed && parsed.userID || '' ).trim();
+	const username = String( parsed && parsed.username || '' ).trim();
+	return { userID, username, raw: parsed };
 }
 
 async function runZoteroLogin( options ) {
 	const auth = mergeZoteroAuth( options );
 	if ( !auth.apiKey ) {
 		throw new Error( 'Missing Zotero API key. Pass --api-key or set ZOTERO_API_KEY.' );
+	}
+	// Fail-safe: if user-id is omitted, infer it from the API key.
+	if ( auth.libraryType === 'users' && !auth.libraryId ) {
+		const keyInfo = await fetchZoteroKeyInfo( auth );
+		if ( !keyInfo.userID ) {
+			throw new Error( 'Could not infer user-id from Zotero API key. Pass --user-id explicitly.' );
+		}
+		auth.userId = keyInfo.userID;
+		auth.libraryId = keyInfo.userID;
 	}
 	requireZoteroLibrary( auth );
 	saveZoteroAuth( {
@@ -1330,6 +1662,22 @@ async function runZoteroLogin( options ) {
 		return;
 	}
 	process.stdout.write( `zotero login saved (${ auth.libraryType }/${ auth.libraryId })\n` );
+}
+
+async function runZoteroWhoami( options ) {
+	const auth = mergeZoteroAuth( options );
+	const keyInfo = await fetchZoteroKeyInfo( auth );
+	const output = {
+		api_base: auth.apiBase,
+		user_id: keyInfo.userID || null,
+		username: keyInfo.username || null
+	};
+	if ( options.json ) {
+		jsonOut( { ok: true, command: 'zotero', stage: 'whoami', ...output } );
+		return output;
+	}
+	process.stdout.write( `${ JSON.stringify( output, null, 2 ) }\n` );
+	return output;
 }
 
 async function runZoteroLogout( options ) {
@@ -1460,6 +1808,149 @@ async function runZoteroCite( reference, options ) {
 	return body;
 }
 
+async function runZoteroAdd( payloadInput, options ) {
+	const auth = mergeZoteroAuth( options );
+	requireZoteroLibrary( auth );
+	if ( !auth.apiKey ) {
+		throw new Error( 'zotero add requires API key with write permission' );
+	}
+	const payload = parseJsonInputArg( payloadInput, 'add' );
+	validateZoteroAddPayload( payload );
+	const writeToken = crypto.randomBytes( 16 ).toString( 'hex' );
+	const { url, response, body } = await zoteroApiWriteRequest(
+		auth,
+		'POST',
+		`/${ auth.libraryType }/${ encodeURIComponent( auth.libraryId ) }/items`,
+		[ payload ],
+		{ 'Zotero-Write-Token': writeToken }
+	);
+	if ( response.statusCode === 412 ) {
+		throw new Error( 'zotero add precondition failed (412). Retry and ensure library is up to date.' );
+	}
+	if ( response.statusCode < 200 || response.statusCode >= 300 ) {
+		throw new Error( `zotero add failed (${ response.statusCode }) at ${ url }: ${ body.slice( 0, 300 ) }` );
+	}
+	let parsed = null;
+	try {
+		parsed = JSON.parse( body );
+	} catch ( error ) {
+	}
+	if ( options.json ) {
+		jsonOut( {
+			ok: true,
+			command: 'zotero',
+			stage: 'add',
+			status_code: response.statusCode,
+			result: parsed || body
+		} );
+		return parsed || body;
+	}
+	process.stdout.write( `${ body || 'zotero add ok' }\n` );
+	return parsed || body;
+}
+
+async function runZoteroDelete( reference, options ) {
+	const auth = mergeZoteroAuth( options );
+	requireZoteroLibrary( auth );
+	if ( !auth.apiKey ) {
+		throw new Error( 'zotero delete requires API key with write permission' );
+	}
+	const ref = parseZoteroItemReference( reference, auth );
+	const useAuth = {
+		...auth,
+		libraryType: ref.libraryType,
+		libraryId: ref.libraryId
+	};
+	const confirmed = await confirmDelete( ref, options );
+	if ( !confirmed ) {
+		if ( options.json ) {
+			jsonOut( {
+				ok: false,
+				command: 'zotero',
+				stage: 'delete',
+				error: 'Delete cancelled by user'
+			} );
+			return;
+		}
+		process.stdout.write( 'delete cancelled\n' );
+		return;
+	}
+	const currentVersion = await fetchZoteroItemVersion( useAuth, ref );
+	if ( !currentVersion ) {
+		throw new Error( 'Could not determine current item version for safe delete' );
+	}
+	const { url, response, body } = await zoteroApiWriteRequest(
+		useAuth,
+		'DELETE',
+		`/${ ref.libraryType }/${ encodeURIComponent( ref.libraryId ) }/items/${ encodeURIComponent( ref.itemKey ) }`,
+		undefined,
+		{ 'If-Unmodified-Since-Version': currentVersion }
+	);
+	if ( response.statusCode === 412 ) {
+		throw new Error( 'zotero delete rejected: item changed remotely (412)' );
+	}
+	if ( response.statusCode < 200 || response.statusCode >= 299 ) {
+		throw new Error( `zotero delete failed (${ response.statusCode }) at ${ url }: ${ body.slice( 0, 300 ) }` );
+	}
+	if ( options.json ) {
+		jsonOut( {
+			ok: true,
+			command: 'zotero',
+			stage: 'delete',
+			library_type: ref.libraryType,
+			library_id: ref.libraryId,
+			item_key: ref.itemKey
+		} );
+		return;
+	}
+	process.stdout.write( `deleted ${ ref.libraryType }/${ ref.libraryId }/${ ref.itemKey }\n` );
+}
+
+async function runZoteroUpdate( reference, payloadInput, options ) {
+	const auth = mergeZoteroAuth( options );
+	requireZoteroLibrary( auth );
+	if ( !auth.apiKey ) {
+		throw new Error( 'zotero update requires API key with write permission' );
+	}
+	const ref = parseZoteroItemReference( reference, auth );
+	const useAuth = {
+		...auth,
+		libraryType: ref.libraryType,
+		libraryId: ref.libraryId
+	};
+	const payload = parseJsonInputArg( payloadInput, 'update' );
+	validateZoteroUpdatePayload( payload );
+	const currentVersion = await fetchZoteroItemVersion( useAuth, ref );
+	if ( !currentVersion ) {
+		throw new Error( 'Could not determine current item version for safe update' );
+	}
+	const { url, response, body } = await zoteroApiWriteRequest(
+		useAuth,
+		'PATCH',
+		`/${ ref.libraryType }/${ encodeURIComponent( ref.libraryId ) }/items/${ encodeURIComponent( ref.itemKey ) }`,
+		payload,
+		{ 'If-Unmodified-Since-Version': currentVersion }
+	);
+	if ( response.statusCode === 412 ) {
+		throw new Error( 'zotero update rejected: item changed remotely (412)' );
+	}
+	if ( response.statusCode < 200 || response.statusCode >= 300 ) {
+		throw new Error( `zotero update failed (${ response.statusCode }) at ${ url }: ${ body.slice( 0, 300 ) }` );
+	}
+	if ( options.json ) {
+		jsonOut( {
+			ok: true,
+			command: 'zotero',
+			stage: 'update',
+			library_type: ref.libraryType,
+			library_id: ref.libraryId,
+			item_key: ref.itemKey
+		} );
+		return;
+	}
+	process.stdout.write( `updated ${ ref.libraryType }/${ ref.libraryId }/${ ref.itemKey }\n` );
+}
+
 async function runZoteroCommand( subAction, options ) {
 	const action = String( subAction || '' ).trim().toLowerCase();
 	if ( action === 'login' ) {
@@ -1468,6 +1959,10 @@ async function runZoteroCommand( subAction, options ) {
 	}
 	if ( action === 'logout' ) {
 		await runZoteroLogout( options );
+		return;
+	}
+	if ( action === 'whoami' ) {
+		await runZoteroWhoami( options );
 		return;
 	}
 	if ( action === 'query' ) {
@@ -1485,6 +1980,28 @@ async function runZoteroCommand( subAction, options ) {
 			throw new Error( 'zotero cite requires <item-key|zotero-url>' );
 		}
 		await runZoteroCite( reference, options );
+		return;
+	}
+	if ( action === 'add' ) {
+		const payloadInput = options.args.join( ' ' ).trim();
+		await runZoteroAdd( payloadInput, options );
+		return;
+	}
+	if ( action === 'delete' ) {
+		const reference = options.args.join( ' ' ).trim();
+		if ( !reference ) {
+			throw new Error( 'zotero delete requires <item-key|zotero-url>' );
+		}
+		await runZoteroDelete( reference, options );
+		return;
+	}
+	if ( action === 'update' ) {
+		const reference = String( options.args[ 0 ] || '' ).trim();
+		const payloadInput = options.args.slice( 1 ).join( ' ' ).trim();
+		if ( !reference || !payloadInput ) {
+			throw new Error( 'zotero update requires <item-key|zotero-url> and <json-patch>' );
+		}
+		await runZoteroUpdate( reference, payloadInput, options );
 		return;
 	}
 	throw new Error( `Unsupported zotero action: ${ action }` );
@@ -1539,6 +2056,9 @@ function requestExternal( urlString, limiter, options = {} ) {
 	const timeoutMs = options.timeoutMs || defaultRequestTimeoutMs;
 	const maxRedirects = options.maxRedirects || 8;
 	const maxBodyBytes = options.maxBodyBytes > 0 ? options.maxBodyBytes : null;
+	const requestBody = options.bodyBuffer ?
+		options.bodyBuffer :
+		( typeof options.bodyText === 'string' ? Buffer.from( options.bodyText, 'utf8' ) : null );
 
 	return new Promise( ( resolve, reject ) => {
 		const doRequest = async ( nextUrlString, redirectsLeft ) => {
@@ -1558,9 +2078,15 @@ function requestExternal( urlString, limiter, options = {} ) {
 			}
 
 			const transport = parsed.protocol === 'https:' ? https : http;
+			const headers = {
+				...( options.headers || {} )
+			};
+			if ( requestBody && !headers[ 'Content-Length' ] && !headers[ 'content-length' ] ) {
+				headers[ 'Content-Length' ] = String( requestBody.length );
+			}
 			const req = transport.request( nextUrlString, {
 				method: options.method || 'GET',
-				headers: options.headers || {}
+				headers
 			}, ( res ) => {
 				const status = res.statusCode || 0;
 				const location = res.headers.location;
@@ -1606,6 +2132,9 @@ function requestExternal( urlString, limiter, options = {} ) {
 				req.destroy( new Error( `request timeout after ${ timeoutMs }ms` ) );
 			} );
 			req.on( 'error', reject );
+			if ( requestBody ) {
+				req.write( requestBody );
+			}
 			req.end();
 		};
 
