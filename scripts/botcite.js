@@ -1979,9 +1979,11 @@ async function runZoteroCite( reference, options ) {
 		} );
 		return body;
 	}
-	process.stdout.write( body );
-	if ( !body.endsWith( '\n' ) ) {
-		process.stdout.write( '\n' );
+	if ( !options.silent ) {
+		process.stdout.write( body );
+		if ( !body.endsWith( '\n' ) ) {
+			process.stdout.write( '\n' );
+		}
 	}
 	return body;
 }
@@ -2811,7 +2813,9 @@ async function runZoteroCrossref(query, options) {
 		jsonOut( { ok: true, command: 'crossref', stage: 'done', query: q, result: output } );
 		return output;
 	}
-	process.stdout.write( `${ JSON.stringify( output, null, 2 ) }\n` );
+	if ( !options.silent ) {
+		process.stdout.write( `${ JSON.stringify( output, null, 2 ) }\n` );
+	}
 	return output;
 }
 
@@ -3021,7 +3025,9 @@ async function runSemanticScholarLegacy(query, options) {
 		jsonOut( { ok: true, command: 'semantic-scholar', stage: 'legacy', query: q, request_url: result.url, result: output } );
 		return output;
 	}
-	process.stdout.write( `${ JSON.stringify( output, null, 2 ) }\n` );
+	if ( !options.silent ) {
+		process.stdout.write( `${ JSON.stringify( output, null, 2 ) }\n` );
+	}
 	return output;
 }
 
@@ -3053,7 +3059,9 @@ async function runSemanticScholarApi(pathname, options) {
 		} );
 		return result.parsed;
 	}
-	process.stdout.write( `${ JSON.stringify( result.parsed, null, 2 ) }\n` );
+	if ( !options.silent ) {
+		process.stdout.write( `${ JSON.stringify( result.parsed, null, 2 ) }\n` );
+	}
 	return result.parsed;
 }
 
@@ -4267,6 +4275,61 @@ function makeMcpTools() {
 				},
 				required: [ 'identifier' ]
 			}
+		},
+		{
+			name: 'citoid',
+			description: 'Wikimedia Citation REST call',
+			inputSchema: {
+				type: 'object',
+				properties: {
+					format: { type: 'string' },
+					query: { type: 'string' },
+					wmf_citoid_base: { type: 'string' }
+				},
+				required: [ 'format', 'query' ]
+			}
+		},
+		{
+			name: 'crossref',
+			description: 'Crossref lookup by DOI or query',
+			inputSchema: {
+				type: 'object',
+				properties: {
+					query: { type: 'string' },
+					limit: { type: 'number' }
+				},
+				required: [ 'query' ]
+			}
+		},
+		{
+			name: 'semantic_scholar',
+			description: 'Semantic Scholar legacy query (doi/arxiv/query)',
+			inputSchema: {
+				type: 'object',
+				properties: {
+					query: { type: 'string' },
+					limit: { type: 'number' },
+					offset: { type: 'number' },
+					fields: { type: 'string' },
+					s2_api_key: { type: 'string' }
+				},
+				required: [ 'query' ]
+			}
+		},
+		{
+			name: 'semantic_scholar_api',
+			description: 'Semantic Scholar Graph API passthrough',
+			inputSchema: {
+				type: 'object',
+				properties: {
+					path: { type: 'string' },
+					method: { type: 'string' },
+					params: { type: 'object' },
+					body: {},
+					s2_api_key: { type: 'string' }
+				},
+				required: [ 'path' ]
+			}
 		}
 	];
 }
@@ -4310,6 +4373,57 @@ async function callMcpTool( name, args ) {
 		const output = await runOpenUrlResolve( identifier, {
 			...options,
 			base: args && args.base ? String( args.base ) : ''
+		} );
+		return JSON.stringify( output, null, 2 );
+	}
+	if ( name === 'citoid' ) {
+		const format = String( args && args.format || '' ).trim();
+		const query = String( args && args.query || '' ).trim();
+		if ( !format || !query ) {
+			throw new Error( 'citoid requires format and query' );
+		}
+		const body = await runWmfCitoid( format, query, {
+			...options,
+			wmfCitoidBase: args && args.wmf_citoid_base ? String( args.wmf_citoid_base ) : defaultWmfCitoidBase
+		} );
+		return body;
+	}
+	if ( name === 'crossref' ) {
+		const query = String( args && args.query || '' ).trim();
+		if ( !query ) {
+			throw new Error( 'crossref requires query' );
+		}
+		const output = await runZoteroCrossref( query, {
+			...options,
+			limit: Number.isFinite( args && args.limit ) ? Number( args.limit ) : options.limit
+		} );
+		return JSON.stringify( output, null, 2 );
+	}
+	if ( name === 'semantic_scholar' ) {
+		const query = String( args && args.query || '' ).trim();
+		if ( !query ) {
+			throw new Error( 'semantic_scholar requires query' );
+		}
+		const output = await runSemanticScholarLegacy( query, {
+			...options,
+			limit: Number.isFinite( args && args.limit ) ? Number( args.limit ) : options.limit,
+			offset: Number.isFinite( args && args.offset ) ? Number( args.offset ) : 0,
+			fields: args && args.fields ? String( args.fields ) : '',
+			s2ApiKey: args && args.s2_api_key ? String( args.s2_api_key ) : defaultS2ApiKey
+		} );
+		return JSON.stringify( output, null, 2 );
+	}
+	if ( name === 'semantic_scholar_api' ) {
+		const pathArg = String( args && args.path || '' ).trim();
+		if ( !pathArg ) {
+			throw new Error( 'semantic_scholar_api requires path' );
+		}
+		const output = await runSemanticScholarApi( pathArg, {
+			...options,
+			method: args && args.method ? String( args.method ) : 'GET',
+			params: args && args.params ? JSON.stringify( args.params ) : '',
+			body: args && Object.prototype.hasOwnProperty.call( args, 'body' ) ? JSON.stringify( args.body ) : '',
+			s2ApiKey: args && args.s2_api_key ? String( args.s2_api_key ) : defaultS2ApiKey
 		} );
 		return JSON.stringify( output, null, 2 );
 	}
