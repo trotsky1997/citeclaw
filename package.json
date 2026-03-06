@@ -19,6 +19,7 @@
 		"server.js",
 		"spec.yaml",
 		"targets.yaml",
+		"vendor/",
 		"README.md",
 		"LICENSE"
 	],
