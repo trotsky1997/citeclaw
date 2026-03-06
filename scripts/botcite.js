@@ -17,10 +17,12 @@ const yaml = require( 'js-yaml' );
 const citoidApp = require( '../app.js' );
 
 const rootDir = path.resolve( __dirname, '..' );
-const zoteroDir = process.env.ZOTERO_DIR || path.join( path.dirname( rootDir ), 'zotero' );
-const setupScript = path.join( rootDir, 'scripts', 'setup-local.sh' );
+const zoteroDir = process.env.ZOTERO_DIR || path.join( rootDir, 'vendor', 'zotero' );
+const cnTranslatorsDir = process.env.CN_TRANSLATORS_DIR || path.join( rootDir, 'vendor', 'translators_CN' );
+const vendoredStylesDir = path.join( rootDir, 'vendor', 'styles' );
 const localDir = path.join( rootDir, '.local' );
 const logDir = path.join( localDir, 'logs' );
+const stateDir = path.join( localDir, 'state' );
 const mergedTranslatorsDir = process.env.LOCAL_TRANSLATORS_DIR ||
 	path.join( localDir, 'translators' );
 const stylesRootDir = process.env.LOCAL_STYLES_DIR ||
@@ -28,7 +30,7 @@ const stylesRootDir = process.env.LOCAL_STYLES_DIR ||
 const stylesRepoDir = path.join( stylesRootDir, 'repo-zotero-chinese' );
 const cslDir = path.join( stylesRootDir, 'csl' );
 const localeDir = path.join( stylesRootDir, 'locales' );
-const defaultStylesRepo = 'https://github.com/zotero-chinese/styles.git';
+const defaultStylesRepo = vendoredStylesDir;
 const defaultPdfFetchIntervalMs = parseInt( process.env.CITOID_LOCAL_FETCH_INTERVAL_MS || '800', 10 );
 const defaultRequestTimeoutMs = parseInt( process.env.CITOID_LOCAL_FETCH_TIMEOUT_MS || '15000', 10 );
 const defaultProbeBodyBytes = parseInt( process.env.CITOID_LOCAL_PROBE_BODY_BYTES || '1572864', 10 );
@@ -75,23 +77,9 @@ function usage() {
 	console.error( "  botcite cite-style --plain --locale zh-CN '10.1145/3368089.3409741'" );
 }
 
-function runScript( scriptPath, args = [] ) {
-	const child = spawnSync( scriptPath, args, {
-		cwd: rootDir,
-		env: process.env,
-		stdio: 'inherit'
-	} );
-
-	if ( child.error ) {
-		console.error( child.error.message );
-		process.exit( 1 );
-	}
-
-	process.exit( child.status === null ? 1 : child.status );
-}
-
 function ensureDirs() {
 	fs.mkdirSync( logDir, { recursive: true } );
+	fs.mkdirSync( stateDir, { recursive: true } );
 	fs.mkdirSync( stylesRootDir, { recursive: true } );
 	fs.mkdirSync( cacheRootDir, { recursive: true } );
 	fs.mkdirSync( pdfCacheDir, { recursive: true } );
@@ -225,6 +213,100 @@ function runCommandOrThrow( command, args, cwd ) {
 	return result;
 }
 
+function repoReady( repoPath ) {
+	try {
+		return fs.statSync( repoPath ).isDirectory();
+	} catch ( error ) {
+		return false;
+	}
+}
+
+function repoHeadOrMissing( repoPath ) {
+	if ( !repoReady( repoPath ) ) {
+		return 'missing';
+	}
+	if ( fileExists( path.join( repoPath, '.git' ) ) ) {
+		try {
+			return runCommandText( 'git', [ '-C', repoPath, 'rev-parse', 'HEAD' ] ).trim() || 'unknown';
+		} catch ( error ) {
+			return 'unknown';
+		}
+	}
+	const stat = fs.statSync( repoPath );
+	return `vendored-${ Math.floor( stat.mtimeMs ) }`;
+}
+
+function translatorsNeedSync() {
+	const stampPath = path.join( stateDir, 'translators-sync.stamp' );
+	const hasMerged = fileExists( mergedTranslatorsDir ) &&
+		fs.readdirSync( mergedTranslatorsDir ).some( ( name ) => name.endsWith( '.js' ) );
+	if ( !hasMerged ) {
+		return true;
+	}
+
+	const currentStamp = `zotero=${ repoHeadOrMissing( path.join( zoteroDir, 'modules', 'translators' ) ) };cn=${ repoHeadOrMissing( cnTranslatorsDir ) }`;
+	let previousStamp = '';
+	if ( fileExists( stampPath ) ) {
+		previousStamp = fs.readFileSync( stampPath, 'utf8' ).trim();
+	}
+	return currentStamp !== previousStamp;
+}
+
+function writeTranslatorStamp() {
+	const stampPath = path.join( stateDir, 'translators-sync.stamp' );
+	const stamp = `zotero=${ repoHeadOrMissing( path.join( zoteroDir, 'modules', 'translators' ) ) };cn=${ repoHeadOrMissing( cnTranslatorsDir ) }`;
+	fs.writeFileSync( stampPath, `${ stamp }\n` );
+}
+
+function syncMergedTranslators() {
+	fs.rmSync( mergedTranslatorsDir, { recursive: true, force: true } );
+	fs.mkdirSync( mergedTranslatorsDir, { recursive: true } );
+	const zoteroTranslators = path.join( zoteroDir, 'modules', 'translators' );
+	if ( fileExists( zoteroTranslators ) ) {
+		fs.readdirSync( zoteroTranslators )
+			.filter( ( name ) => name.endsWith( '.js' ) )
+			.forEach( ( name ) => {
+				fs.copyFileSync(
+					path.join( zoteroTranslators, name ),
+					path.join( mergedTranslatorsDir, name )
+				);
+			} );
+	}
+	if ( fileExists( cnTranslatorsDir ) ) {
+		fs.readdirSync( cnTranslatorsDir )
+			.filter( ( name ) => name.endsWith( '.js' ) )
+			.forEach( ( name ) => {
+				fs.copyFileSync(
+					path.join( cnTranslatorsDir, name ),
+					path.join( mergedTranslatorsDir, name )
+				);
+			} );
+	}
+	writeTranslatorStamp();
+}
+
+function bootstrapLocalEnvironment() {
+	ensureDirs();
+	if ( !repoReady( zoteroDir ) || !repoReady( cnTranslatorsDir ) ) {
+		throw new Error(
+			'missing vendored repos under vendor/. pull the complete repository content.'
+		);
+	}
+
+	if ( !fileExists( path.join( rootDir, 'node_modules' ) ) ) {
+		runCommandOrThrow( 'bun', [ 'install' ], rootDir );
+	}
+	if ( !fileExists( path.join( zoteroDir, 'modules', 'translators' ) ) ) {
+		throw new Error( 'missing vendored zotero contents under vendor/zotero/modules/translators' );
+	}
+	if ( !fileExists( path.join( zoteroDir, 'node_modules' ) ) ) {
+		runCommandOrThrow( 'bun', [ 'install' ], zoteroDir );
+	}
+	if ( translatorsNeedSync() ) {
+		syncMergedTranslators();
+	}
+}
+
 function ensureInstalled() {
 	if ( fileExists( path.join( rootDir, 'node_modules' ) ) &&
 		fileExists( path.join( zoteroDir, 'node_modules' ) ) &&
@@ -232,14 +314,12 @@ function ensureInstalled() {
 		return;
 	}
 
-	console.error( 'dependencies missing; running setup first' );
-	const child = spawnSync( setupScript, [], {
-		cwd: rootDir,
-		env: process.env,
-		stdio: 'inherit'
-	} );
-	if ( child.status !== 0 ) {
-		process.exit( child.status === null ? 1 : child.status );
+	console.error( 'dependencies missing; bootstrapping runtime...' );
+	try {
+		bootstrapLocalEnvironment();
+	} catch ( error ) {
+		process.exitCode = 1;
+		throw error;
 	}
 }
 
@@ -757,18 +837,14 @@ async function syncStyles( options ) {
 	ensureDirs();
 	fs.mkdirSync( cslDir, { recursive: true } );
 	fs.mkdirSync( localeDir, { recursive: true } );
-
-	if ( !commandExists( 'git' ) ) {
-		throw new Error( 'git is required for styles sync' );
+	const sourceStylesDir = path.isAbsolute( options.repo || '' ) ?
+		( options.repo || stylesRepoDir ) :
+		path.join( rootDir, options.repo || 'vendor/styles' );
+	if ( !fileExists( sourceStylesDir ) ) {
+		throw new Error( `styles source not found: ${ sourceStylesDir }` );
 	}
 
-	if ( !fileExists( path.join( stylesRepoDir, '.git' ) ) ) {
-		runCommandOrThrow( 'git', [ 'clone', options.repo, stylesRepoDir ] );
-	} else {
-		runCommandOrThrow( 'git', [ 'pull', '--ff-only' ], stylesRepoDir );
-	}
-
-	const cslFiles = walkFiles( stylesRepoDir )
+	const cslFiles = walkFiles( sourceStylesDir )
 		.filter( ( filePath ) => filePath.endsWith( '.csl' ) );
 	cslFiles.forEach( ( src ) => {
 		const dest = path.join( cslDir, path.basename( src ) );
@@ -1795,7 +1871,14 @@ function handleCommandError( error, options, command, stage ) {
 const action = process.argv[ 2 ];
 
 if ( action === 'setup' ) {
-	runScript( setupScript );
+	try {
+		bootstrapLocalEnvironment();
+		process.stdout.write( 'local runtime ready\n' );
+		process.exit( 0 );
+	} catch ( error ) {
+		console.error( error.message );
+		process.exit( 1 );
+	}
 }
 
 if ( action === 'styles' ) {
