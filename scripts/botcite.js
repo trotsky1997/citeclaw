@@ -93,6 +93,61 @@ function usage() {
 	console.error( "  botcite cite-style --plain --locale zh-CN '10.1145/3368089.3409741'" );
 }
 
+function usageZotero( subAction = '' ) {
+	const action = String( subAction || '' ).trim().toLowerCase();
+	if ( action === 'login' ) {
+		console.error( 'usage:' );
+		console.error( '  botcite zotero login --user-id <id> --api-key <key> [--zotero-api-base <url>]' );
+		console.error( '  botcite zotero login --library-type groups --library-id <group-id> --api-key <key>' );
+		console.error( 'notes:' );
+		console.error( '  - personal library defaults to library-type users' );
+		console.error( '  - credentials are saved to .local/state/zotero-auth.json' );
+		console.error( '  - API key can be created at https://www.zotero.org/settings/keys' );
+		return;
+	}
+	if ( action === 'logout' ) {
+		console.error( 'usage:' );
+		console.error( '  botcite zotero logout' );
+		console.error( 'notes:' );
+		console.error( '  - removes local credentials from .local/state/zotero-auth.json' );
+		return;
+	}
+	if ( action === 'query' ) {
+		console.error( 'usage:' );
+		console.error( "  botcite zotero query <text> [--limit <1-100>]" );
+		return;
+	}
+	if ( action === 'dump' ) {
+		console.error( 'usage:' );
+		console.error( '  botcite zotero dump [--limit <1-100>]' );
+		return;
+	}
+	if ( action === 'cite' ) {
+		console.error( 'usage:' );
+		console.error( '  botcite zotero cite <item-key|zotero-url>' );
+		console.error( 'examples:' );
+		console.error( '  botcite zotero cite AB12CD34' );
+		console.error( '  botcite zotero cite https://www.zotero.org/users/123/items/AB12CD34' );
+		return;
+	}
+
+	console.error( 'usage:' );
+	console.error( '  botcite zotero <login|logout|query|dump|cite> [...]' );
+	console.error( 'commands:' );
+	console.error( '  login   save Zotero API credentials locally' );
+	console.error( '  logout  clear saved credentials' );
+	console.error( '  query   full-text search in configured library' );
+	console.error( '  dump    list library items as JSON' );
+	console.error( '  cite    fetch BibTeX for one item' );
+	console.error( 'examples:' );
+	console.error( '  botcite zotero login --user-id 123456 --api-key xxxx' );
+	console.error( "  botcite zotero query 'transformer'" );
+	console.error( '  botcite zotero dump --limit 10' );
+	console.error( '  botcite zotero cite AB12CD34' );
+	console.error( 'help:' );
+	console.error( '  botcite zotero login --help' );
+}
+
 function ensureDirs() {
 	fs.mkdirSync( logDir, { recursive: true } );
 	fs.mkdirSync( stateDir, { recursive: true } );
@@ -2570,11 +2625,19 @@ if ( action === 'openurl-resolve' ) {
 }
 
 if ( action === 'zotero' ) {
-	const parsed = parseOptions( process.argv.slice( 3 ) );
-	const subAction = parsed.args.shift();
-	if ( !subAction ) {
-		usage();
-		process.exit( 1 );
+	const rawArgs = process.argv.slice( 3 );
+	if ( rawArgs.length === 0 ||
+		rawArgs[ 0 ] === '--help' ||
+		rawArgs[ 0 ] === '-h' ||
+		rawArgs[ 0 ] === 'help' ) {
+		usageZotero();
+		process.exit( 0 );
+	}
+	const subAction = String( rawArgs[ 0 ] || '' ).trim();
+	const parsed = parseOptions( rawArgs.slice( 1 ) );
+	if ( parsed.args.includes( '--help' ) || parsed.args.includes( '-h' ) ) {
+		usageZotero( subAction );
+		process.exit( 0 );
 	}
 	runZoteroCommand( subAction, parsed ).catch( ( error ) => {
 		handleCommandError( error, parsed, 'zotero', subAction );
