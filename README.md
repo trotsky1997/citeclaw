@@ -82,11 +82,22 @@ bun run local zotero delete AB12CD34
 bun run local zotero delete -y AB12CD34
 ```
 
+Note operations:
+
+```bash
+bun run local zotero note add AB12CD34 "<p>Key takeaway: ...</p>"
+bun run local zotero note list AB12CD34 --limit 20
+bun run local zotero note update CD34EF56 "<p>Updated note</p>"
+bun run local zotero note delete CD34EF56
+bun run local zotero note delete -y CD34EF56
+```
+
 Write-safety notes:
 - API key must have write permissions.
 - `update` rejects reserved fields (`key`, `version`, `libraryID`, `itemType`, `links`, `meta`).
 - `delete` / `update` use item-version preconditions to avoid stale writes.
 - `delete` requires typing `yes` unless `-y/--yes` is passed.
+- `note add/update` accept HTML or plain text; plain text is auto-wrapped into safe HTML.
 
 Logout:
 

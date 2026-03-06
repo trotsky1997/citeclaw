@@ -62,7 +62,7 @@ function usage() {
 	console.error( '  botcite cite-pdf [--headers] <pdf-path>' );
 	console.error( '  botcite fetch-pdf [--base <openurl-base>] [--out <file.pdf>] <doi|arxiv|url>' );
 	console.error( '  botcite openurl-resolve [--base <openurl-base>] <doi|arxiv|url>' );
-	console.error( '  botcite zotero <login|logout|whoami|query|dump|cite|add|delete|update> [...]' );
+	console.error( '  botcite zotero <login|logout|whoami|query|dump|cite|add|delete|update|note> [...]' );
 	console.error( '  botcite batch --op <cite|cite-style|fetch-pdf|openurl-resolve> --in <file>' );
 	console.error( '  botcite styles sync [--repo <git-url>]' );
 	console.error( '  botcite cite-style [--plain] [--style <name-or-path>] [--locale zh-CN] <query>' );
@@ -168,9 +168,23 @@ function usageZotero( subAction = '' ) {
 		console.error( '  - key/version/library fields are rejected in patch payload' );
 		return;
 	}
+	if ( action === 'note' ) {
+		console.error( 'usage:' );
+		console.error( "  botcite zotero note add <parent-item-key|zotero-url> '<note-html-or-text>'" );
+		console.error( '  botcite zotero note add <parent-item-key|zotero-url> @./note.html' );
+		console.error( '  botcite zotero note list <parent-item-key|zotero-url> [--limit <1-100>]' );
+		console.error( "  botcite zotero note update <note-key|zotero-url> '<note-html-or-text>'" );
+		console.error( '  botcite zotero note update <note-key|zotero-url> @./note.html' );
+		console.error( '  botcite zotero note delete <note-key|zotero-url>' );
+		console.error( '  botcite zotero note delete -y <note-key|zotero-url>' );
+		console.error( 'notes:' );
+		console.error( '  - add/update run strict sanity checks on note content' );
+		console.error( '  - delete requires yes/no confirmation unless -y is provided' );
+		return;
+	}
 
 	console.error( 'usage:' );
-	console.error( '  botcite zotero <login|logout|whoami|query|dump|cite|add|delete|update> [...]' );
+	console.error( '  botcite zotero <login|logout|whoami|query|dump|cite|add|delete|update|note> [...]' );
 	console.error( 'commands:' );
 	console.error( '  login   save Zotero API credentials locally' );
 	console.error( '  logout  clear saved credentials' );
@@ -181,6 +195,7 @@ function usageZotero( subAction = '' ) {
 	console.error( '  add     add one item with strict sanity checks' );
 	console.error( '  delete  delete one item with version precondition' );
 	console.error( '  update  update one item with strict sanity checks' );
+	console.error( '  note    manage child notes (add/list/update/delete)' );
 	console.error( 'examples:' );
 	console.error( '  botcite zotero login --user-id 123456 --api-key xxxx' );
 	console.error( '  botcite zotero whoami' );
@@ -188,6 +203,8 @@ function usageZotero( subAction = '' ) {
 	console.error( '  botcite zotero dump --limit 10' );
 	console.error( '  botcite zotero cite AB12CD34' );
 	console.error( "  botcite zotero add '{\"itemType\":\"journalArticle\",\"title\":\"Demo\"}'" );
+	console.error( "  botcite zotero note add AB12CD34 '<p>Important note</p>'" );
+	console.error( '  botcite zotero note list AB12CD34' );
 	console.error( '  botcite zotero delete AB12CD34' );
 	console.error( "  botcite zotero update AB12CD34 '{\"title\":\"New title\"}'" );
 	console.error( 'help:' );
@@ -1808,13 +1825,52 @@ async function runZoteroCite( reference, options ) {
 	return body;
 }
 
-async function runZoteroAdd( payloadInput, options ) {
+function escapeHtml( text ) {
+	return String( text )
+		.replace( /&/g, '&amp;' )
+		.replace( /</g, '&lt;' )
+		.replace( />/g, '&gt;' )
+		.replace( /"/g, '&quot;' )
+		.replace( /'/g, '&#39;' );
+}
+
+function normalizeNoteContent( noteInput ) {
+	let raw = String( noteInput || '' ).trim();
+	if ( !raw ) {
+		throw new Error( 'Note content cannot be empty' );
+	}
+	if ( raw.startsWith( '@' ) ) {
+		const filePath = path.resolve( raw.slice( 1 ) );
+		if ( !fileExists( filePath ) ) {
+			throw new Error( `Note file not found: ${ filePath }` );
+		}
+		raw = fs.readFileSync( filePath, 'utf8' ).trim();
+	}
+	if ( !raw ) {
+		throw new Error( 'Note content cannot be empty' );
+	}
+	const normalized = /<[^>]+>/.test( raw ) ?
+		raw :
+		`<p>${ escapeHtml( raw ).replace( /\r?\n/g, '<br/>' ) }</p>`;
+	if ( normalized.length > 200000 ) {
+		throw new Error( 'Note content is too large' );
+	}
+	if ( /[\u0000-\u0008\u000B\u000C\u000E-\u001F]/.test( normalized ) ) {
+		throw new Error( 'Note content contains unsupported control characters' );
+	}
+	return normalized;
+}
+
+function summarizeNote( html ) {
+	return htmlToPlainText( String( html || '' ) ).slice( 0, 160 );
+}
+
+async function runZoteroAddPayload( payload, options ) {
 	const auth = mergeZoteroAuth( options );
 	requireZoteroLibrary( auth );
 	if ( !auth.apiKey ) {
 		throw new Error( 'zotero add requires API key with write permission' );
 	}
-	const payload = parseJsonInputArg( payloadInput, 'add' );
 	validateZoteroAddPayload( payload );
 	const writeToken = crypto.randomBytes( 16 ).toString( 'hex' );
 	const { url, response, body } = await zoteroApiWriteRequest(
@@ -1843,10 +1899,19 @@ async function runZoteroAdd( payloadInput, options ) {
 			status_code: response.statusCode,
 			result: parsed || body
 		} );
-		return parsed || body;
 	}
-	process.stdout.write( `${ body || 'zotero add ok' }\n` );
 	return parsed || body;
+}
+
+async function runZoteroAdd( payloadInput, options ) {
+	const payload = parseJsonInputArg( payloadInput, 'add' );
+	const result = await runZoteroAddPayload( payload, options );
+	if ( options.json ) {
+		return result;
+	}
+	const body = typeof result === 'string' ? result : JSON.stringify( result, null, 2 );
+	process.stdout.write( `${ body || 'zotero add ok' }\n` );
+	return result;
 }
 
 async function runZoteroDelete( reference, options ) {
@@ -1907,6 +1972,11 @@ async function runZoteroDelete( reference, options ) {
 }
 
 async function runZoteroUpdate( reference, payloadInput, options ) {
+	const payload = parseJsonInputArg( payloadInput, 'update' );
+	return runZoteroUpdatePayload( reference, payload, options );
+}
+
+async function runZoteroUpdatePayload( reference, payload, options ) {
 	const auth = mergeZoteroAuth( options );
 	requireZoteroLibrary( auth );
 	if ( !auth.apiKey ) {
@@ -1918,7 +1988,6 @@ async function runZoteroUpdate( reference, payloadInput, options ) {
 		libraryType: ref.libraryType,
 		libraryId: ref.libraryId
 	};
-	const payload = parseJsonInputArg( payloadInput, 'update' );
 	validateZoteroUpdatePayload( payload );
 	const currentVersion = await fetchZoteroItemVersion( useAuth, ref );
 	if ( !currentVersion ) {
@@ -1946,9 +2015,150 @@ async function runZoteroUpdate( reference, payloadInput, options ) {
 			library_id: ref.libraryId,
 			item_key: ref.itemKey
 		} );
-		return;
+		return true;
 	}
 	process.stdout.write( `updated ${ ref.libraryType }/${ ref.libraryId }/${ ref.itemKey }\n` );
+	return true;
+}
+
+async function runZoteroNoteAdd( parentReference, noteInput, options ) {
+	const auth = mergeZoteroAuth( options );
+	requireZoteroLibrary( auth );
+	const parent = parseZoteroItemReference( parentReference, auth );
+	const payload = {
+		itemType: 'note',
+		parentItem: parent.itemKey,
+		note: normalizeNoteContent( noteInput )
+	};
+	const result = await runZoteroAddPayload( payload, {
+		...options,
+		json: false
+	} );
+	if ( options.json ) {
+		jsonOut( {
+			ok: true,
+			command: 'zotero',
+			stage: 'note-add',
+			parent_item: parent.itemKey,
+			result
+		} );
+		return result;
+	}
+	process.stdout.write( `note added under ${ parent.itemKey }\n` );
+	return result;
+}
+
+async function runZoteroNoteList( parentReference, options ) {
+	const auth = mergeZoteroAuth( options );
+	requireZoteroLibrary( auth );
+	const parent = parseZoteroItemReference( parentReference, auth );
+	const useAuth = {
+		...auth,
+		libraryType: parent.libraryType,
+		libraryId: parent.libraryId
+	};
+	const limit = Math.max( 1, Math.min( 100, Number.isFinite( options.limit ) ? options.limit : 20 ) );
+	const { url, response, body } = await zoteroApiRequest(
+		useAuth,
+		`/${ parent.libraryType }/${ encodeURIComponent( parent.libraryId ) }/items/${ encodeURIComponent( parent.itemKey ) }/children`,
+		{
+			format: 'json',
+			include: 'data',
+			limit
+		}
+	);
+	if ( response.statusCode < 200 || response.statusCode >= 300 ) {
+		throw new Error( `zotero note list failed (${ response.statusCode }) at ${ url }` );
+	}
+	const rows = parseZoteroJsonArray( body, url )
+		.filter( ( item ) => item && item.data && item.data.itemType === 'note' )
+		.map( ( item ) => ( {
+			key: item.key,
+			parentItem: item.data.parentItem || parent.itemKey,
+			preview: summarizeNote( item.data.note || '' ),
+			dateModified: item.data.dateModified || ''
+		} ) );
+	if ( options.json ) {
+		jsonOut( {
+			ok: true,
+			command: 'zotero',
+			stage: 'note-list',
+			parent_item: parent.itemKey,
+			count: rows.length,
+			notes: rows
+		} );
+		return rows;
+	}
+	process.stdout.write( `${ JSON.stringify( rows, null, 2 ) }\n` );
+	return rows;
+}
+
+async function runZoteroNoteUpdate( noteReference, noteInput, options ) {
+	const payload = {
+		note: normalizeNoteContent( noteInput )
+	};
+	const done = await runZoteroUpdatePayload( noteReference, payload, {
+		...options,
+		json: false
+	} );
+	if ( options.json ) {
+		jsonOut( {
+			ok: true,
+			command: 'zotero',
+			stage: 'note-update',
+			reference: noteReference
+		} );
+		return done;
+	}
+	return done;
+}
+
+async function runZoteroNoteDelete( noteReference, options ) {
+	const done = await runZoteroDelete( noteReference, options );
+	return done;
+}
+
+async function runZoteroNoteCommand( options ) {
+	const action = String( options.args.shift() || '' ).trim().toLowerCase();
+	if ( !action ) {
+		usageZotero( 'note' );
+		return;
+	}
+	if ( action === 'add' ) {
+		const parentRef = String( options.args[ 0 ] || '' ).trim();
+		const noteInput = options.args.slice( 1 ).join( ' ' ).trim();
+		if ( !parentRef || !noteInput ) {
+			throw new Error( 'zotero note add requires <parent-item-key|zotero-url> and <note>' );
+		}
+		await runZoteroNoteAdd( parentRef, noteInput, options );
+		return;
+	}
+	if ( action === 'list' ) {
+		const parentRef = String( options.args[ 0 ] || '' ).trim();
+		if ( !parentRef ) {
+			throw new Error( 'zotero note list requires <parent-item-key|zotero-url>' );
+		}
+		await runZoteroNoteList( parentRef, options );
+		return;
+	}
+	if ( action === 'update' ) {
+		const noteRef = String( options.args[ 0 ] || '' ).trim();
+		const noteInput = options.args.slice( 1 ).join( ' ' ).trim();
+		if ( !noteRef || !noteInput ) {
+			throw new Error( 'zotero note update requires <note-key|zotero-url> and <note>' );
+		}
+		await runZoteroNoteUpdate( noteRef, noteInput, options );
+		return;
+	}
+	if ( action === 'delete' ) {
+		const noteRef = String( options.args[ 0 ] || '' ).trim();
+		if ( !noteRef ) {
+			throw new Error( 'zotero note delete requires <note-key|zotero-url>' );
+		}
+		await runZoteroNoteDelete( noteRef, options );
+		return;
+	}
+	throw new Error( `Unsupported zotero note action: ${ action }` );
 }
 
 async function runZoteroCommand( subAction, options ) {
@@ -2002,6 +2212,10 @@ async function runZoteroCommand( subAction, options ) {
 			throw new Error( 'zotero update requires <item-key|zotero-url> and <json-patch>' );
 		}
 		await runZoteroUpdate( reference, payloadInput, options );
+		return;
+	}
+	if ( action === 'note' ) {
+		await runZoteroNoteCommand( options );
 		return;
 	}
 	throw new Error( `Unsupported zotero action: ${ action }` );
