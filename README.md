@@ -8,6 +8,7 @@ It combines:
 - external scholarly APIs (Wikimedia Citoid, Crossref, Semantic Scholar)
 - MCP server mode for AI tool integration
 - dual vendored style sources: `zotero-chinese/styles` + official `citation-style-language/styles`
+- dual official/community translators: `zotero/translators` + `translators_CN` (merged at runtime)
 
 [Citoid Documentation on mediawiki.org](https://www.mediawiki.org/wiki/Citoid)
 

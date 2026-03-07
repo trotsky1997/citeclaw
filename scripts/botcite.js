@@ -20,6 +20,8 @@ const citoidApp = require( '../app.js' );
 const rootDir = path.resolve( __dirname, '..' );
 const zoteroDir = process.env.ZOTERO_DIR || path.join( rootDir, 'vendor', 'zotero' );
 const cnTranslatorsDir = process.env.CN_TRANSLATORS_DIR || path.join( rootDir, 'vendor', 'translators_CN' );
+const officialTranslatorsDir = process.env.OFFICIAL_TRANSLATORS_DIR ||
+	path.join( rootDir, 'vendor', 'translators-official' );
 const vendoredStylesDir = path.join( rootDir, 'vendor', 'styles' );
 const vendoredOfficialStylesDir = path.join( rootDir, 'vendor', 'styles-official' );
 const localDir = path.join( rootDir, '.local' );
@@ -454,7 +456,7 @@ function translatorsNeedSync() {
 		return true;
 	}
 
-	const currentStamp = `zotero=${ repoHeadOrMissing( path.join( zoteroDir, 'modules', 'translators' ) ) };cn=${ repoHeadOrMissing( cnTranslatorsDir ) }`;
+	const currentStamp = `zotero=${ repoHeadOrMissing( path.join( zoteroDir, 'modules', 'translators' ) ) };official=${ repoHeadOrMissing( officialTranslatorsDir ) };cn=${ repoHeadOrMissing( cnTranslatorsDir ) }`;
 	let previousStamp = '';
 	if ( fileExists( stampPath ) ) {
 		previousStamp = fs.readFileSync( stampPath, 'utf8' ).trim();
@@ -464,7 +466,7 @@ function translatorsNeedSync() {
 
 function writeTranslatorStamp() {
 	const stampPath = path.join( stateDir, 'translators-sync.stamp' );
-	const stamp = `zotero=${ repoHeadOrMissing( path.join( zoteroDir, 'modules', 'translators' ) ) };cn=${ repoHeadOrMissing( cnTranslatorsDir ) }`;
+	const stamp = `zotero=${ repoHeadOrMissing( path.join( zoteroDir, 'modules', 'translators' ) ) };official=${ repoHeadOrMissing( officialTranslatorsDir ) };cn=${ repoHeadOrMissing( cnTranslatorsDir ) }`;
 	fs.writeFileSync( stampPath, `${ stamp }\n` );
 }
 
@@ -478,6 +480,16 @@ function syncMergedTranslators() {
 			.forEach( ( name ) => {
 				fs.copyFileSync(
 					path.join( zoteroTranslators, name ),
+					path.join( mergedTranslatorsDir, name )
+				);
+			} );
+	}
+	if ( fileExists( officialTranslatorsDir ) ) {
+		fs.readdirSync( officialTranslatorsDir )
+			.filter( ( name ) => name.endsWith( '.js' ) )
+			.forEach( ( name ) => {
+				fs.copyFileSync(
+					path.join( officialTranslatorsDir, name ),
 					path.join( mergedTranslatorsDir, name )
 				);
 			} );
@@ -497,7 +509,7 @@ function syncMergedTranslators() {
 
 function bootstrapLocalEnvironment() {
 	ensureDirs();
-	if ( !repoReady( zoteroDir ) || !repoReady( cnTranslatorsDir ) ) {
+	if ( !repoReady( zoteroDir ) || !repoReady( cnTranslatorsDir ) || !repoReady( officialTranslatorsDir ) ) {
 		throw new Error(
 			'missing vendored repos under vendor/. pull the complete repository content.'
 		);
