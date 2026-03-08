@@ -75,6 +75,13 @@ services:
       zoteroUseProxy: false
       allowPrivateAddresses: true
       maxRedirects: 10
+      outgoing_request_throttle:
+        enabled: true
+        delayMs: 3100
+        skipHosts:
+          - localhost
+          - 127.0.0.1
+          - ::1
       # the template used for contacting the MW API
       mwapi_req:
         method: post

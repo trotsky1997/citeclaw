@@ -12,6 +12,7 @@ const packageInfo = require( './package.json' );
 const yaml = require( 'js-yaml' );
 const addShutdown = require( 'http-shutdown' );
 const path = require( 'path' );
+const OutgoingRequestThrottle = require( './lib/OutgoingRequestThrottle' );
 
 /**
  * Creates an express app and initialises it
@@ -69,6 +70,17 @@ function initApp( options ) {
 	if ( app.conf.csp === undefined ) {
 		app.conf.csp = "default-src 'self'; object-src 'none'; media-src *; img-src *; style-src *; frame-ancestors 'self'";
 	}
+	if ( app.conf.outgoing_request_throttle === undefined ) {
+		app.conf.outgoing_request_throttle = {
+			enabled: true,
+			delayMs: 3100,
+			skipHosts: [ 'localhost', '127.0.0.1', '::1' ]
+		};
+	}
+	app.conf.outgoing_request_throttle.skipHosts = Array.from( new Set( [
+		...( app.conf.outgoing_request_throttle.skipHosts || [] ),
+		app.conf.zoteroInterface
+	].filter( Boolean ) ) );
 
 	// check the zotero configuration
 	if ( app.conf.zotero && !( app.conf.zoteroInterface && app.conf.zoteroPort ) ) {
@@ -174,6 +186,7 @@ function initApp( options ) {
 	app.use( bodyParser.json( { limit: app.conf.max_body_size || '100kb' } ) );
 	// use the application/x-www-form-urlencoded parser
 	app.use( bodyParser.urlencoded( { extended: true } ) );
+	app.outgoingRequestThrottle = new OutgoingRequestThrottle( app.conf.outgoing_request_throttle );
 
 	// Catch URI decoding errors
 	app.use( ( err, req, res, next ) => {

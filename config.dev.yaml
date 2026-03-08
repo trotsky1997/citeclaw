@@ -92,6 +92,13 @@ services:
       mailto: example@example.com
       # Force certain requests to return with partial data using this timeout in milliseconds
       timeout: false
+      outgoing_request_throttle:
+        enabled: true
+        delayMs: 3100
+        skipHosts:
+          - localhost
+          - 127.0.0.1
+          - ::1
       # Max JSON POST body size limit.
       # max_body_size: 100kb
       # the template used for contacting the MW API
