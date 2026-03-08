@@ -80,6 +80,13 @@ services:
         timeout: 5000
         searchLimit: 2
         preferForArxiv: true
+      # enable OpenAlex as a supplementary source for DOI/PMID/PMCID/search queries
+      openAlex:
+        enabled: false
+        api: https://api.openalex.org
+        apiKey: false
+        timeout: 5000
+        searchLimit: 2
       # enable use of zotero's translation-server service to query for URLs;
       # defaults to true if undefined
       zotero: true
