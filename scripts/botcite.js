@@ -60,7 +60,6 @@ BBPromise.onPossiblyUnhandledRejection( () => {
 
 function usage() {
 	console.error( 'usage:' );
-	console.error( '  (legacy alias: botcite ...)' );
 	console.error( '  citeclaw mcp' );
 	console.error( '  citeclaw setup' );
 	console.error( '  citeclaw citoid <format> <query>' );
@@ -310,7 +309,8 @@ function fileExists( filePath ) {
 }
 
 function commandExists( command ) {
-	const found = spawnSync( 'bash', [ '-lc', `command -v ${ command }` ], {
+	const args = process.platform === 'win32' ? [ '/c', 'where', command ] : [ '-lc', `command -v ${ command }` ];
+	const found = spawnSync( process.platform === 'win32' ? 'cmd' : 'bash', args, {
 		stdio: 'pipe',
 		encoding: 'utf8'
 	} );
@@ -409,6 +409,9 @@ function runCommandText( command, args ) {
 		encoding: 'utf8'
 	} );
 	if ( result.status !== 0 ) {
+		if ( result.error ) {
+			throw new Error( result.error.message || `${ command } failed to start` );
+		}
 		const stderr = ( result.stderr || '' ).trim();
 		throw new Error( stderr || `${ command } failed` );
 	}
@@ -422,10 +425,23 @@ function runCommandOrThrow( command, args, cwd ) {
 		encoding: 'utf8'
 	} );
 	if ( result.status !== 0 ) {
+		if ( result.error ) {
+			throw new Error( result.error.message || `${ command } failed to start` );
+		}
 		const stderr = ( result.stderr || '' ).trim();
 		throw new Error( stderr || `${ command } failed` );
 	}
 	return result;
+}
+
+function resolveInstallCommand() {
+	if ( commandExists( 'npm' ) ) {
+		return { command: 'npm', args: [ 'install' ] };
+	}
+	if ( commandExists( 'bun' ) ) {
+		return { command: 'bun', args: [ 'install' ] };
+	}
+	throw new Error( 'no supported package manager found; install npm or bun' );
 }
 
 function repoReady( repoPath ) {
@@ -512,6 +528,7 @@ function syncMergedTranslators() {
 
 function bootstrapLocalEnvironment() {
 	ensureDirs();
+	const installer = resolveInstallCommand();
 	if ( !repoReady( zoteroDir ) || !repoReady( cnTranslatorsDir ) || !repoReady( officialTranslatorsDir ) ) {
 		throw new Error(
 			'missing vendored repos under vendor/. pull the complete repository content.'
@@ -519,13 +536,13 @@ function bootstrapLocalEnvironment() {
 	}
 
 	if ( !fileExists( path.join( rootDir, 'node_modules' ) ) ) {
-		runCommandOrThrow( 'npm', [ 'install' ], rootDir );
+		runCommandOrThrow( installer.command, installer.args, rootDir );
 	}
 	if ( !fileExists( path.join( zoteroDir, 'modules', 'translators' ) ) ) {
 		throw new Error( 'missing vendored zotero contents under vendor/zotero/modules/translators' );
 	}
 	if ( !fileExists( path.join( zoteroDir, 'node_modules' ) ) ) {
-		runCommandOrThrow( 'npm', [ 'install' ], zoteroDir );
+		runCommandOrThrow( installer.command, installer.args, zoteroDir );
 	}
 	if ( translatorsNeedSync() ) {
 		syncMergedTranslators();
