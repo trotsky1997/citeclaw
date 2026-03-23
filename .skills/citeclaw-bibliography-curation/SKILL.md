@@ -31,17 +31,17 @@ Use CiteClaw for these command families:
 Use these as canonical examples:
 
 ```bash
-npx github:trotsky1997/citeclaw#master citoid formats
-npx github:trotsky1997/citeclaw#master citoid bibtex "10.1021/acsomega.2c05310"
-npx github:trotsky1997/citeclaw#master crossref "10.1021/acsomega.2c05310" --json
-npx github:trotsky1997/citeclaw#master semantic-scholar "10.1021/acsomega.2c05310" --json
+npx citeclaw citoid formats
+npx citeclaw citoid bibtex "10.1021/acsomega.2c05310"
+npx citeclaw crossref "10.1021/acsomega.2c05310" --json
+npx citeclaw semantic-scholar "10.1021/acsomega.2c05310" --json
 ```
 
 ## Advanced Semantic Scholar
 
 ```bash
-npx github:trotsky1997/citeclaw#master semantic-scholar api /paper/search --params '{"query":"transformer","limit":3}'
-npx github:trotsky1997/citeclaw#master semantic-scholar paper-search "transformer attention" --limit 5 --fields "title,year,authors,url"
+npx citeclaw semantic-scholar api /paper/search --params '{"query":"transformer","limit":3}'
+npx citeclaw semantic-scholar paper-search "transformer attention" --limit 5 --fields "title,year,authors,url"
 ```
 
 ## CiteClaw guardrails
@@ -109,10 +109,10 @@ Use CiteClaw first for:
 Typical commands:
 
 ```bash
-npx github:trotsky1997/citeclaw#master citoid bibtex "https://arxiv.org/abs/2305.19860"
-npx github:trotsky1997/citeclaw#master citoid bibtex "10.1145/3589334.3648158"
-npx github:trotsky1997/citeclaw#master citoid bibtex "https://aclanthology.org/2023.emnlp-main.398/"
-npx github:trotsky1997/citeclaw#master crossref "conversational recommender systems survey" --json
+npx citeclaw citoid bibtex "https://arxiv.org/abs/2305.19860"
+npx citeclaw citoid bibtex "10.1145/3589334.3648158"
+npx citeclaw citoid bibtex "https://aclanthology.org/2023.emnlp-main.398/"
+npx citeclaw crossref "conversational recommender systems survey" --json
 ```
 
 Use the GitHub-hosted `npx` form above as the default documented interface. Only switch to a local checkout if you explicitly need to inspect or patch CiteClaw itself.

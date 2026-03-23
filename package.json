@@ -1,12 +1,12 @@
 {
 	"name": "citeclaw",
-	"version": "2.0.0",
-	"description": "Converts search terms such as URL or DOI into citations.",
-	"homepage": "https://www.mediawiki.org/wiki/Citoid",
+	"version": "2.0.1",
+	"description": "Citation and bibliography toolkit for DOI, URL, arXiv, PDF, Zotero, and MCP workflows.",
+	"homepage": "https://github.com/trotsky1997/citeclaw",
 	"license": "Apache-2.0",
 	"main": "./app.js",
 	"bin": {
-		"citeclaw": "./scripts/citeclaw.js"
+		"citeclaw": "scripts/citeclaw.js"
 	},
 	"files": [
 		"app.js",
@@ -91,10 +91,10 @@
 	},
 	"repository": {
 		"type": "git",
-		"url": "https://gerrit.wikimedia.org/r/mediawiki/services/citoid"
+		"url": "git+https://github.com/trotsky1997/citeclaw.git"
 	},
 	"bugs": {
-		"url": "https://phabricator.wikimedia.org/tag/citoid/"
+		"url": "https://github.com/trotsky1997/citeclaw/issues"
 	},
 	"contributors": [
 		{

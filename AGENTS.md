@@ -16,7 +16,7 @@ Use npm with Node.js 20 or 22.
 
 - `npm install`: install dependencies.
 - `npm run start`: run via `service-runner` using `config.yaml`.
-- `npx github:trotsky1997/citeclaw#master <args>`: run CLI directly from git.
+- `npx citeclaw <args>`: run CLI from npm.
 - `npm run test`: lint + core feature suites.
 - `npm run test:zotero`: full test run including Zotero-heavy tests.
 - `npm run coverage`: run `nyc` coverage.

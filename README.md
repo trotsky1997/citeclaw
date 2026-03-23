@@ -1,62 +1,79 @@
 # CiteClaw
 
-`CiteClaw` is a citation operations toolkit for researchers, agents, and knowledge workflows.
+`CiteClaw` is a citation and bibliography toolkit built on top of Wikimedia Citoid, Crossref, Semantic Scholar, and Zotero-oriented workflows.
 
-It combines:
-- fast citation generation (DOI / URL / arXiv / PDF)
-- Zotero library automation (items, notes, write-safe updates)
-- external scholarly APIs (Wikimedia Citoid, Crossref, Semantic Scholar)
-- MCP server mode for AI tool integration
-- dual vendored style sources: `zotero-chinese/styles` + official `citation-style-language/styles`
-- dual official/community translators: `zotero/translators` + `translators_CN` (merged at runtime)
+It is designed for two related jobs:
 
-[Citoid Documentation on mediawiki.org](https://www.mediawiki.org/wiki/Citoid)
+- fast citation resolution from DOI, URL, arXiv, anthology pages, and PDFs
+- larger bibliography workflows such as cleaning BibTeX, expanding literature coverage, and maintaining Zotero-backed reference sets
 
-## Why CiteClaw
-- One CLI for citation retrieval, metadata enrichment, and Zotero maintenance.
-- Safe-by-default write workflows (`dry-run`, `safe-mode`, delete confirmation).
-- Agent-ready through MCP (`tools/list`, `tools/call`).
-- Works locally and remotely with `npx github:...`.
+## What It Does
 
-## Quickstart
-1. `npm install`
-2. `npm run start -- -c config.dev.yaml`
-3. Open: [http://localhost:1970/?doc](http://localhost:1970/?doc#!/Citations/get_api)
+`CiteClaw` combines:
 
-`citeclaw styles sync` now merges two vendored style repositories by default:
-- Chinese community styles: `vendor/styles`
-- Official CSL styles: `vendor/styles-official`
+- a CLI for citation lookup, metadata export, PDF resolution, and batch jobs
+- an HTTP service compatible with Citoid-style API flows
+- an MCP server mode for agent/tool integrations
+- Zotero automation for query, cite, add, update, notes, dedup, enrichment, and export
+- vendored translator and CSL style assets for reproducible local runs
 
-## Fast Start (CLI)
+## Fast Start
 
-Primary command is `citeclaw`. Legacy `botcite` remains available as an alias for backward compatibility.
-
-Entry:
+Run from npm:
 
 ```bash
-npx github:trotsky1997/citeclaw#master --help
-npx github:trotsky1997/citeclaw#master citoid formats
-npx github:trotsky1997/citeclaw#master citoid bibtex "10.1021/acsomega.2c05310"
-npx github:trotsky1997/citeclaw#master crossref "10.1021/acsomega.2c05310"
-npx github:trotsky1997/citeclaw#master semantic-scholar "10.1021/acsomega.2c05310"
-npx github:trotsky1997/citeclaw#master cite bibtex 10.48550/arXiv.1706.03762
+npx citeclaw --help
+npx citeclaw citoid formats
+npx citeclaw cite bibtex 10.48550/arXiv.1706.03762
+npx citeclaw crossref "10.1021/acsomega.2c05310"
 ```
+
+Typical resolution flows:
+
+```bash
+npx citeclaw citoid bibtex "10.1145/3589334.3648158"
+npx citeclaw citoid bibtex "https://arxiv.org/abs/2305.19860"
+npx citeclaw citoid bibtex "https://aclanthology.org/2023.emnlp-main.398/"
+npx citeclaw cite mediawiki "https://arxiv.org/abs/1706.03762"
+```
+
+## Local Service
+
+Install dependencies and start the service:
+
+```bash
+npm install
+npm run start -- -c config.dev.yaml
+```
+
+Then open:
+
+- API docs: `http://localhost:1970/?doc`
+- OpenAPI spec: `http://localhost:1970/?spec`
+- Service info: `http://localhost:1970/_info`
+
+The service layer is still based on the Wikimedia Citoid architecture:
+
+- homepage: <https://www.mediawiki.org/wiki/Citoid>
+- HTTP entrypoints: [server.js](/mnt/e/botcite/server.js), [app.js](/mnt/e/botcite/app.js)
 
 ## MCP Mode
 
-Start MCP server:
+Start the MCP server over stdio:
 
 ```bash
-npx github:trotsky1997/citeclaw#master mcp
+npx citeclaw mcp
 ```
 
 Implemented methods:
+
 - `initialize`
 - `ping`
 - `tools/list`
 - `tools/call`
 
-Current MCP tools:
+Exposed tools:
+
 - `cite`
 - `cite_pdf`
 - `fetch_pdf`
@@ -68,61 +85,68 @@ Current MCP tools:
 
 ## Zotero Workflows
 
-Login:
+Identity and login:
 
 ```bash
-npx github:trotsky1997/citeclaw#master zotero whoami --api-key <zotero_api_key>
-npx github:trotsky1997/citeclaw#master zotero login --api-key <zotero_api_key>
+npx citeclaw zotero whoami --api-key <zotero_api_key>
+npx citeclaw zotero login --api-key <zotero_api_key>
 ```
 
-Core operations:
+Core item operations:
 
 ```bash
-npx github:trotsky1997/citeclaw#master zotero query "transformer" --limit 20
-npx github:trotsky1997/citeclaw#master zotero cite AB12CD34
-npx github:trotsky1997/citeclaw#master zotero add '{"itemType":"journalArticle","title":"Demo"}'
-npx github:trotsky1997/citeclaw#master zotero update AB12CD34 '{"title":"Updated title"}'
-npx github:trotsky1997/citeclaw#master zotero delete AB12CD34
+npx citeclaw zotero query "transformer" --limit 20
+npx citeclaw zotero cite AB12CD34
+npx citeclaw zotero add '{"itemType":"journalArticle","title":"Demo"}'
+npx citeclaw zotero update AB12CD34 '{"title":"Updated title"}'
 ```
 
-Notes:
+Note and maintenance operations:
 
 ```bash
-npx github:trotsky1997/citeclaw#master zotero note add AB12CD34 "<p>Key takeaway: ...</p>"
-npx github:trotsky1997/citeclaw#master zotero note search "transformer" --parent AB12CD34
-npx github:trotsky1997/citeclaw#master zotero note cite-links "doi" --apply
+npx citeclaw zotero note add AB12CD34 "<p>Key takeaway: ...</p>"
+npx citeclaw zotero dedup --limit 300
+npx citeclaw zotero enrich --apply
+npx citeclaw zotero export md --out ./library.md
 ```
 
-Safety model:
-- `delete` requires interactive `yes` unless `-y/--yes`
-- `update/delete` use version preconditions
-- `safe-mode` and `--dry-run` available for write protection
+Safety defaults:
 
-## Advanced Workflows
+- destructive deletes require confirmation unless `-y`
+- `update` and `delete` use version preconditions
+- `safe-mode` and `--dry-run` are available for write protection
 
-```bash
-npx github:trotsky1997/citeclaw#master zotero safe-mode on
-npx github:trotsky1997/citeclaw#master zotero sync-cite --apply
-npx github:trotsky1997/citeclaw#master zotero dedup --limit 300
-npx github:trotsky1997/citeclaw#master zotero enrich --apply
-npx github:trotsky1997/citeclaw#master zotero export md --out ./library.md
-npx github:trotsky1997/citeclaw#master zotero watch "transformer" --out-bib ./watch.bib --interval 60
-```
+## Bibliography Curation
 
-## Full Semantic Scholar Graph Access
+This repo includes a higher-level bibliography workflow skill:
 
-```bash
-npx github:trotsky1997/citeclaw#master semantic-scholar api /paper/search --params '{"query":"transformer","limit":3}'
-npx github:trotsky1997/citeclaw#master semantic-scholar paper-search "transformer attention" --limit 5 --fields "title,year,authors,url"
-npx github:trotsky1997/citeclaw#master semantic-scholar paper-batch @./paper_ids.txt --fields "title,year,authors"
-npx github:trotsky1997/citeclaw#master semantic-scholar author 1741101 --fields "name,paperCount,citationCount"
-```
+- [SKILL.md](/mnt/e/botcite/.skills/citeclaw-bibliography-curation/SKILL.md)
 
-Note: Semantic Scholar may return `429` without API key. Use `--s2-api-key <key>` or set `S2_API_KEY`.
+Use it when the task is broader than “generate one citation”, for example:
 
-## Packaging
+- clean a noisy `.bib`
+- expand a survey bibliography to dozens or hundreds of references
+- split core references from supplemental references
+- build a topic-wise literature map for an appendix
+
+## Development
+
+Useful commands:
 
 ```bash
+npm run test
+npm run test:zotero
+npm run coverage
+npm run lint
 npm run pack:dry-run
-npm publish
 ```
+
+Current package metadata and entrypoints live in:
+
+- [package.json](/mnt/e/botcite/package.json)
+- [scripts/citeclaw.js](/mnt/e/botcite/scripts/citeclaw.js)
+
+## Notes
+
+- The npm package name and primary CLI are `citeclaw`.
+- Primary install/run path is `npx citeclaw ...`.
