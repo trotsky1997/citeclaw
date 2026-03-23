@@ -6,8 +6,7 @@
 	"license": "Apache-2.0",
 	"main": "./app.js",
 	"bin": {
-		"citeclaw": "./scripts/citeclaw.js",
-		"botcite": "./scripts/citeclaw.js"
+		"citeclaw": "./scripts/citeclaw.js"
 	},
 	"files": [
 		"app.js",
@@ -21,7 +20,24 @@
 		"server.js",
 		"spec.yaml",
 		"targets.yaml",
-		"vendor/",
+		"vendor/zotero/config/",
+		"vendor/zotero/modules/translate/src/",
+		"vendor/zotero/modules/translators/*.js",
+		"vendor/zotero/modules/utilities/*.js",
+		"vendor/zotero/modules/utilities/resource/dateFormats.json",
+		"vendor/zotero/modules/utilities/resource/zoteroTypeSchemaData.js",
+		"vendor/zotero/modules/utilities/resource/schema/global/schema.json",
+		"vendor/zotero/modules/zotero-schema/schema.json",
+		"vendor/zotero/src/",
+		"vendor/zotero/package.json",
+		"vendor/zotero/package-lock.json",
+		"vendor/zotero/translate_export",
+		"vendor/zotero/translate_search",
+		"vendor/zotero/translate_url",
+		"vendor/zotero/translate_url_multiple",
+		"vendor/zotero/translate_url_single",
+		"vendor/translators_CN/*.js",
+		"vendor/translators-official/*.js",
 		"README.md",
 		"LICENSE"
 	],

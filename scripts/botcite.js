@@ -1387,16 +1387,21 @@ async function syncStyles( options ) {
 	ensureDirs();
 	fs.mkdirSync( cslDir, { recursive: true } );
 	fs.mkdirSync( localeDir, { recursive: true } );
-	const sourceDirs = options.repo ?
+	const configuredSourceDirs = options.repo ?
 		[
 			path.isAbsolute( options.repo || '' ) ?
 				options.repo :
 				path.join( rootDir, options.repo || 'vendor/styles' )
 		] :
 		defaultStyleSources;
-	const missing = sourceDirs.filter( ( sourceDir ) => !fileExists( sourceDir ) );
-	if ( missing.length ) {
-		throw new Error( `styles source not found: ${ missing.join( ', ' ) }` );
+	const sourceDirs = configuredSourceDirs.filter( ( sourceDir ) => fileExists( sourceDir ) );
+	if ( options.repo && !sourceDirs.length ) {
+		throw new Error( `styles source not found: ${ configuredSourceDirs.join( ', ' ) }` );
+	}
+	if ( !options.repo && !sourceDirs.length ) {
+		throw new Error(
+			'no bundled style sources found in this package; provide --repo <styles-dir> or run from a full source checkout'
+		);
 	}
 
 	let copiedCount = 0;
