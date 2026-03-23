@@ -3,7 +3,7 @@ base: docker-registry.wikimedia.org/nodejs22-slim
 lives:
   in: /srv/service
 runs:
-  environment: { APP_BASE_PATH: /srv/service, BUN_INSTALL: /root/.bun }
+  environment: { APP_BASE_PATH: /srv/service }
 
 variants:
   build:
@@ -14,10 +14,10 @@ variants:
     runs: { environment: { LINK: g++ } }
   development:
     includes: [build]
-    entrypoint: [bash, -lc, "curl -fsSL https://bun.sh/install | bash && export PATH=/root/.bun/bin:$PATH && bun run start"]
+    entrypoint: [bash, -lc, "npm run start"]
   test:
     includes: [build]
-    entrypoint: [bash, -lc, "curl -fsSL https://bun.sh/install | bash && export PATH=/root/.bun/bin:$PATH && bun run test"]
+    entrypoint: [bash, -lc, "npm run test"]
     runs: { insecurely: true }
   prep:
     includes: [build]
@@ -26,4 +26,4 @@ variants:
     copies: [prep]
     node: { env: production }
     apt: { packages: [ca-certificates, curl] }
-    entrypoint: [bash, -lc, "curl -fsSL https://bun.sh/install | bash && export PATH=/root/.bun/bin:$PATH && bun run start"]
+    entrypoint: [bash, -lc, "npm run start"]

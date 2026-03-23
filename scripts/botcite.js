@@ -60,52 +60,53 @@ BBPromise.onPossiblyUnhandledRejection( () => {
 
 function usage() {
 	console.error( 'usage:' );
-	console.error( '  botcite mcp' );
-	console.error( '  botcite setup' );
-	console.error( '  botcite citoid <format> <query>' );
-	console.error( '  botcite citoid formats' );
-	console.error( '  botcite citation <format> <query>' );
-	console.error( '  botcite crossref <doi|query>' );
-	console.error( '  botcite semantic-scholar <doi|arxiv|query>' );
-	console.error( '  botcite semantic-scholar api <path> [--method GET|POST] [--params <json>] [--body <json|@file>]' );
-	console.error( '  botcite semantic-scholar paper <paperId>' );
-	console.error( '  botcite semantic-scholar paper-search <query> [--limit <n>] [--offset <n>]' );
-	console.error( '  botcite semantic-scholar paper-search-bulk <query> [--token <token>]' );
-	console.error( '  botcite semantic-scholar paper-batch <id1,id2,...|@file>' );
-	console.error( '  botcite semantic-scholar author <authorId>' );
-	console.error( '  botcite semantic-scholar author-papers <authorId> [--limit <n>] [--offset <n>]' );
-	console.error( '  botcite semantic-scholar author-batch <id1,id2,...|@file>' );
-	console.error( '  botcite api [--headers] <path>' );
-	console.error( '  botcite cite [--headers] <format> <query>' );
-	console.error( '  botcite cite-pdf [--headers] [--debug-pdf] <pdf-path>' );
-	console.error( '  botcite fetch-pdf [--base <openurl-base>] [--out <file.pdf>] <doi|arxiv|url>' );
-	console.error( '  botcite openurl-resolve [--base <openurl-base>] <doi|arxiv|url>' );
-	console.error( '  botcite zotero <login|logout|whoami|query|dump|cite|add|delete|update|note|sync-cite|dedup|enrich|export|watch|templates|safe-mode> [...]' );
-	console.error( '  botcite batch --op <cite|cite-style|fetch-pdf|openurl-resolve> --in <file>' );
-	console.error( '  botcite styles sync [--repo <git-url>]' );
-	console.error( '  botcite cite-style [--plain] [--style <name-or-path>] [--locale zh-CN] <query>' );
-	console.error( '  botcite info' );
-	console.error( '  botcite spec' );
+	console.error( '  (legacy alias: botcite ...)' );
+	console.error( '  citeclaw mcp' );
+	console.error( '  citeclaw setup' );
+	console.error( '  citeclaw citoid <format> <query>' );
+	console.error( '  citeclaw citoid formats' );
+	console.error( '  citeclaw citation <format> <query>' );
+	console.error( '  citeclaw crossref <doi|query>' );
+	console.error( '  citeclaw semantic-scholar <doi|arxiv|query>' );
+	console.error( '  citeclaw semantic-scholar api <path> [--method GET|POST] [--params <json>] [--body <json|@file>]' );
+	console.error( '  citeclaw semantic-scholar paper <paperId>' );
+	console.error( '  citeclaw semantic-scholar paper-search <query> [--limit <n>] [--offset <n>]' );
+	console.error( '  citeclaw semantic-scholar paper-search-bulk <query> [--token <token>]' );
+	console.error( '  citeclaw semantic-scholar paper-batch <id1,id2,...|@file>' );
+	console.error( '  citeclaw semantic-scholar author <authorId>' );
+	console.error( '  citeclaw semantic-scholar author-papers <authorId> [--limit <n>] [--offset <n>]' );
+	console.error( '  citeclaw semantic-scholar author-batch <id1,id2,...|@file>' );
+	console.error( '  citeclaw api [--headers] <path>' );
+	console.error( '  citeclaw cite [--headers] <format> <query>' );
+	console.error( '  citeclaw cite-pdf [--headers] [--debug-pdf] <pdf-path>' );
+	console.error( '  citeclaw fetch-pdf [--base <openurl-base>] [--out <file.pdf>] <doi|arxiv|url>' );
+	console.error( '  citeclaw openurl-resolve [--base <openurl-base>] <doi|arxiv|url>' );
+	console.error( '  citeclaw zotero <login|logout|whoami|query|dump|cite|add|delete|update|note|sync-cite|dedup|enrich|export|watch|templates|safe-mode> [...]' );
+	console.error( '  citeclaw batch --op <cite|cite-style|fetch-pdf|openurl-resolve> --in <file>' );
+	console.error( '  citeclaw styles sync [--repo <git-url>]' );
+	console.error( '  citeclaw cite-style [--plain] [--style <name-or-path>] [--locale zh-CN] <query>' );
+	console.error( '  citeclaw info' );
+	console.error( '  citeclaw spec' );
 	console.error( 'examples:' );
-	console.error( "  botcite api --headers '/_info'" );
-	console.error( "  botcite api '/?spec'" );
-	console.error( '  botcite cite bibtex 10.1145/3368089.3409741' );
-	console.error( '  botcite citoid bibtex 10.1145/3368089.3409741' );
-	console.error( '  botcite citoid formats' );
-	console.error( '  botcite crossref 10.1021/acsomega.2c05310' );
-	console.error( '  botcite semantic-scholar 10.1021/acsomega.2c05310' );
-	console.error( '  botcite semantic-scholar paper-search "transformer attention" --limit 5' );
-	console.error( '  botcite cite mediawiki https://arxiv.org/abs/1706.03762' );
-	console.error( '  botcite cite-pdf ./paper.pdf' );
-	console.error( '  botcite cite-pdf --json --debug-pdf ./paper.pdf' );
-	console.error( '  botcite fetch-pdf 10.1038/s41586-020-2649-2' );
-	console.error( '  botcite fetch-pdf 1706.03762 --out ./attention.pdf' );
-	console.error( "  botcite openurl-resolve --base 'https://example.edu/openurl' 10.1038/s41586-020-2649-2" );
-	console.error( '  botcite zotero login --user-id 123456 --api-key xxxx' );
-	console.error( '  botcite zotero whoami' );
-	console.error( "  botcite zotero query 'transformer'" );
-	console.error( '  botcite zotero cite AB12CD34' );
-	console.error( '  botcite batch --op cite --format bibtex --in ./ids.txt --out-jsonl ./result.jsonl' );
+	console.error( "  citeclaw api --headers '/_info'" );
+	console.error( "  citeclaw api '/?spec'" );
+	console.error( '  citeclaw cite bibtex 10.1145/3368089.3409741' );
+	console.error( '  citeclaw citoid bibtex 10.1145/3368089.3409741' );
+	console.error( '  citeclaw citoid formats' );
+	console.error( '  citeclaw crossref 10.1021/acsomega.2c05310' );
+	console.error( '  citeclaw semantic-scholar 10.1021/acsomega.2c05310' );
+	console.error( '  citeclaw semantic-scholar paper-search "transformer attention" --limit 5' );
+	console.error( '  citeclaw cite mediawiki https://arxiv.org/abs/1706.03762' );
+	console.error( '  citeclaw cite-pdf ./paper.pdf' );
+	console.error( '  citeclaw cite-pdf --json --debug-pdf ./paper.pdf' );
+	console.error( '  citeclaw fetch-pdf 10.1038/s41586-020-2649-2' );
+	console.error( '  citeclaw fetch-pdf 1706.03762 --out ./attention.pdf' );
+	console.error( "  citeclaw openurl-resolve --base 'https://example.edu/openurl' 10.1038/s41586-020-2649-2" );
+	console.error( '  citeclaw zotero login --user-id 123456 --api-key xxxx' );
+	console.error( '  citeclaw zotero whoami' );
+	console.error( "  citeclaw zotero query 'transformer'" );
+	console.error( '  citeclaw zotero cite AB12CD34' );
+	console.error( '  citeclaw batch --op cite --format bibtex --in ./ids.txt --out-jsonl ./result.jsonl' );
 	console.error( 'options:' );
 	console.error( '  --concurrency <n>  batch worker count (default: 4)' );
 	console.error( '  --user-id <id>     Zotero user id (or set ZOTERO_USER_ID)' );
@@ -117,17 +118,17 @@ function usage() {
 	console.error( '  --limit <n>        Zotero query/dump limit (1-100)' );
 	console.error( '  -y, --yes          skip interactive confirmation (delete)' );
 	console.error( '  --profile          print timing diagnostics to stderr' );
-	console.error( '  botcite styles sync' );
-	console.error( "  botcite cite-style --locale zh-CN '10.1145/3368089.3409741'" );
-	console.error( "  botcite cite-style --plain --locale zh-CN '10.1145/3368089.3409741'" );
+	console.error( '  citeclaw styles sync' );
+	console.error( "  citeclaw cite-style --locale zh-CN '10.1145/3368089.3409741'" );
+	console.error( "  citeclaw cite-style --plain --locale zh-CN '10.1145/3368089.3409741'" );
 }
 
 function usageZotero( subAction = '' ) {
 	const action = String( subAction || '' ).trim().toLowerCase();
 	if ( action === 'login' ) {
 		console.error( 'usage:' );
-		console.error( '  botcite zotero login --user-id <id> --api-key <key> [--zotero-api-base <url>]' );
-		console.error( '  botcite zotero login --library-type groups --library-id <group-id> --api-key <key>' );
+		console.error( '  citeclaw zotero login --user-id <id> --api-key <key> [--zotero-api-base <url>]' );
+		console.error( '  citeclaw zotero login --library-type groups --library-id <group-id> --api-key <key>' );
 		console.error( 'notes:' );
 		console.error( '  - personal library defaults to library-type users' );
 		console.error( '  - credentials are saved to .local/state/zotero-auth.json' );
@@ -136,14 +137,14 @@ function usageZotero( subAction = '' ) {
 	}
 	if ( action === 'logout' ) {
 		console.error( 'usage:' );
-		console.error( '  botcite zotero logout' );
+		console.error( '  citeclaw zotero logout' );
 		console.error( 'notes:' );
 		console.error( '  - removes local credentials from .local/state/zotero-auth.json' );
 		return;
 	}
 	if ( action === 'whoami' ) {
 		console.error( 'usage:' );
-		console.error( '  botcite zotero whoami [--api-key <key>] [--zotero-api-base <url>]' );
+		console.error( '  citeclaw zotero whoami [--api-key <key>] [--zotero-api-base <url>]' );
 		console.error( 'notes:' );
 		console.error( '  - reads account identity from /keys/current' );
 		console.error( '  - useful for discovering user-id from an API key' );
@@ -151,26 +152,26 @@ function usageZotero( subAction = '' ) {
 	}
 	if ( action === 'query' ) {
 		console.error( 'usage:' );
-		console.error( "  botcite zotero query <text> [--limit <1-100>]" );
+		console.error( "  citeclaw zotero query <text> [--limit <1-100>]" );
 		return;
 	}
 	if ( action === 'dump' ) {
 		console.error( 'usage:' );
-		console.error( '  botcite zotero dump [--limit <1-100>]' );
+		console.error( '  citeclaw zotero dump [--limit <1-100>]' );
 		return;
 	}
 	if ( action === 'cite' ) {
 		console.error( 'usage:' );
-		console.error( '  botcite zotero cite <item-key|zotero-url>' );
+		console.error( '  citeclaw zotero cite <item-key|zotero-url>' );
 		console.error( 'examples:' );
-		console.error( '  botcite zotero cite AB12CD34' );
-		console.error( '  botcite zotero cite https://www.zotero.org/users/123/items/AB12CD34' );
+		console.error( '  citeclaw zotero cite AB12CD34' );
+		console.error( '  citeclaw zotero cite https://www.zotero.org/users/123/items/AB12CD34' );
 		return;
 	}
 	if ( action === 'add' ) {
 		console.error( 'usage:' );
-		console.error( "  botcite zotero add '<json>'" );
-		console.error( '  botcite zotero add @./item.json' );
+		console.error( "  citeclaw zotero add '<json>'" );
+		console.error( '  citeclaw zotero add @./item.json' );
 		console.error( 'notes:' );
 		console.error( '  - strict sanity checks are applied before write' );
 		console.error( '  - payload must include itemType' );
@@ -178,8 +179,8 @@ function usageZotero( subAction = '' ) {
 	}
 	if ( action === 'delete' ) {
 		console.error( 'usage:' );
-		console.error( '  botcite zotero delete <item-key|zotero-url>' );
-		console.error( '  botcite zotero delete -y <item-key|zotero-url>' );
+		console.error( '  citeclaw zotero delete <item-key|zotero-url>' );
+		console.error( '  citeclaw zotero delete -y <item-key|zotero-url>' );
 		console.error( 'notes:' );
 		console.error( '  - uses item version precondition to prevent stale delete' );
 		console.error( '  - default requires interactive confirmation: type \"yes\" to continue' );
@@ -187,8 +188,8 @@ function usageZotero( subAction = '' ) {
 	}
 	if ( action === 'update' ) {
 		console.error( 'usage:' );
-		console.error( "  botcite zotero update <item-key|zotero-url> '<json-patch>'" );
-		console.error( '  botcite zotero update <item-key|zotero-url> @./patch.json' );
+		console.error( "  citeclaw zotero update <item-key|zotero-url> '<json-patch>'" );
+		console.error( '  citeclaw zotero update <item-key|zotero-url> @./patch.json' );
 		console.error( 'notes:' );
 		console.error( '  - strict sanity checks are applied before write' );
 		console.error( '  - key/version/library fields are rejected in patch payload' );
@@ -196,15 +197,15 @@ function usageZotero( subAction = '' ) {
 	}
 	if ( action === 'note' ) {
 		console.error( 'usage:' );
-		console.error( "  botcite zotero note add <parent-item-key|zotero-url> '<note-html-or-text>'" );
-		console.error( '  botcite zotero note add <parent-item-key|zotero-url> @./note.html' );
-		console.error( '  botcite zotero note list <parent-item-key|zotero-url> [--limit <1-100>]' );
-		console.error( "  botcite zotero note search <text> [--limit <1-100>] [--parent <item-key|zotero-url>]" );
-		console.error( "  botcite zotero note cite-links [<text-filter>] [--apply] [--parent <item-key|zotero-url>]" );
-		console.error( "  botcite zotero note update <note-key|zotero-url> '<note-html-or-text>'" );
-		console.error( '  botcite zotero note update <note-key|zotero-url> @./note.html' );
-		console.error( '  botcite zotero note delete <note-key|zotero-url>' );
-		console.error( '  botcite zotero note delete -y <note-key|zotero-url>' );
+		console.error( "  citeclaw zotero note add <parent-item-key|zotero-url> '<note-html-or-text>'" );
+		console.error( '  citeclaw zotero note add <parent-item-key|zotero-url> @./note.html' );
+		console.error( '  citeclaw zotero note list <parent-item-key|zotero-url> [--limit <1-100>]' );
+		console.error( "  citeclaw zotero note search <text> [--limit <1-100>] [--parent <item-key|zotero-url>]" );
+		console.error( "  citeclaw zotero note cite-links [<text-filter>] [--apply] [--parent <item-key|zotero-url>]" );
+		console.error( "  citeclaw zotero note update <note-key|zotero-url> '<note-html-or-text>'" );
+		console.error( '  citeclaw zotero note update <note-key|zotero-url> @./note.html' );
+		console.error( '  citeclaw zotero note delete <note-key|zotero-url>' );
+		console.error( '  citeclaw zotero note delete -y <note-key|zotero-url>' );
 		console.error( 'notes:' );
 		console.error( '  - add/update run strict sanity checks on note content' );
 		console.error( '  - delete requires yes/no confirmation unless -y is provided' );
@@ -212,41 +213,41 @@ function usageZotero( subAction = '' ) {
 	}
 	if ( action === 'sync-cite' ) {
 		console.error( 'usage:' );
-		console.error( '  botcite zotero sync-cite [--limit <n>] [--apply] [--dry-run]' );
+		console.error( '  citeclaw zotero sync-cite [--limit <n>] [--apply] [--dry-run]' );
 		return;
 	}
 	if ( action === 'dedup' ) {
 		console.error( 'usage:' );
-		console.error( '  botcite zotero dedup [--limit <n>]' );
+		console.error( '  citeclaw zotero dedup [--limit <n>]' );
 		return;
 	}
 	if ( action === 'enrich' ) {
 		console.error( 'usage:' );
-		console.error( '  botcite zotero enrich [--limit <n>] [--apply] [--dry-run]' );
+		console.error( '  citeclaw zotero enrich [--limit <n>] [--apply] [--dry-run]' );
 		return;
 	}
 	if ( action === 'export' ) {
 		console.error( 'usage:' );
-		console.error( '  botcite zotero export md [--out <file.md>] [--limit <n>]' );
+		console.error( '  citeclaw zotero export md [--out <file.md>] [--limit <n>]' );
 		return;
 	}
 	if ( action === 'watch' ) {
 		console.error( 'usage:' );
-		console.error( "  botcite zotero watch <query> [--interval <sec>] [--out-bib <file.bib>] [--limit <n>]" );
+		console.error( "  citeclaw zotero watch <query> [--interval <sec>] [--out-bib <file.bib>] [--limit <n>]" );
 		return;
 	}
 	if ( action === 'templates' ) {
 		console.error( 'usage:' );
-		console.error( '  botcite zotero templates [paper|book|webpage] [--apply]' );
+		console.error( '  citeclaw zotero templates [paper|book|webpage] [--apply]' );
 		return;
 	}
 	if ( action === 'safe-mode' ) {
 		console.error( 'usage:' );
-		console.error( '  botcite zotero safe-mode <on|off|status>' );
+		console.error( '  citeclaw zotero safe-mode <on|off|status>' );
 		return;
 	}
 	console.error( 'usage:' );
-	console.error( '  botcite zotero <login|logout|whoami|query|dump|cite|add|delete|update|note|sync-cite|dedup|enrich|export|watch|templates|safe-mode> [...]' );
+	console.error( '  citeclaw zotero <login|logout|whoami|query|dump|cite|add|delete|update|note|sync-cite|dedup|enrich|export|watch|templates|safe-mode> [...]' );
 	console.error( 'commands:' );
 	console.error( '  login   save Zotero API credentials locally' );
 	console.error( '  logout  clear saved credentials' );
@@ -266,29 +267,29 @@ function usageZotero( subAction = '' ) {
 	console.error( '  templates show/apply item templates' );
 	console.error( '  safe-mode persistent dry-run guardrail for write ops' );
 	console.error( 'examples:' );
-	console.error( '  botcite zotero login --user-id 123456 --api-key xxxx' );
-	console.error( '  botcite zotero whoami' );
-	console.error( "  botcite zotero query 'transformer'" );
-	console.error( '  botcite zotero dump --limit 10' );
-	console.error( '  botcite zotero cite AB12CD34' );
-	console.error( "  botcite zotero add '{\"itemType\":\"journalArticle\",\"title\":\"Demo\"}'" );
-	console.error( "  botcite zotero note add AB12CD34 '<p>Important note</p>'" );
-	console.error( '  botcite zotero note list AB12CD34' );
-	console.error( "  botcite zotero note search 'transformer'" );
-	console.error( "  botcite zotero note cite-links 'doi' --apply" );
-	console.error( '  botcite zotero sync-cite --apply' );
-	console.error( '  botcite zotero dedup' );
-	console.error( '  botcite zotero enrich --apply' );
-	console.error( '  botcite zotero export md --out ./library.md' );
-	console.error( "  botcite zotero watch 'transformer' --out-bib ./watch.bib --interval 60" );
-	console.error( '  botcite zotero templates paper' );
-	console.error( '  botcite zotero safe-mode on' );
-	console.error( "  botcite zotero note search 'transformer'" );
-	console.error( "  botcite zotero note search 'transformer' --parent AB12CD34" );
-	console.error( '  botcite zotero delete AB12CD34' );
-	console.error( "  botcite zotero update AB12CD34 '{\"title\":\"New title\"}'" );
+	console.error( '  citeclaw zotero login --user-id 123456 --api-key xxxx' );
+	console.error( '  citeclaw zotero whoami' );
+	console.error( "  citeclaw zotero query 'transformer'" );
+	console.error( '  citeclaw zotero dump --limit 10' );
+	console.error( '  citeclaw zotero cite AB12CD34' );
+	console.error( "  citeclaw zotero add '{\"itemType\":\"journalArticle\",\"title\":\"Demo\"}'" );
+	console.error( "  citeclaw zotero note add AB12CD34 '<p>Important note</p>'" );
+	console.error( '  citeclaw zotero note list AB12CD34' );
+	console.error( "  citeclaw zotero note search 'transformer'" );
+	console.error( "  citeclaw zotero note cite-links 'doi' --apply" );
+	console.error( '  citeclaw zotero sync-cite --apply' );
+	console.error( '  citeclaw zotero dedup' );
+	console.error( '  citeclaw zotero enrich --apply' );
+	console.error( '  citeclaw zotero export md --out ./library.md' );
+	console.error( "  citeclaw zotero watch 'transformer' --out-bib ./watch.bib --interval 60" );
+	console.error( '  citeclaw zotero templates paper' );
+	console.error( '  citeclaw zotero safe-mode on' );
+	console.error( "  citeclaw zotero note search 'transformer'" );
+	console.error( "  citeclaw zotero note search 'transformer' --parent AB12CD34" );
+	console.error( '  citeclaw zotero delete AB12CD34' );
+	console.error( "  citeclaw zotero update AB12CD34 '{\"title\":\"New title\"}'" );
 	console.error( 'help:' );
-	console.error( '  botcite zotero login --help' );
+	console.error( '  citeclaw zotero login --help' );
 }
 
 function ensureDirs() {
@@ -518,13 +519,13 @@ function bootstrapLocalEnvironment() {
 	}
 
 	if ( !fileExists( path.join( rootDir, 'node_modules' ) ) ) {
-		runCommandOrThrow( 'bun', [ 'install' ], rootDir );
+		runCommandOrThrow( 'npm', [ 'install' ], rootDir );
 	}
 	if ( !fileExists( path.join( zoteroDir, 'modules', 'translators' ) ) ) {
 		throw new Error( 'missing vendored zotero contents under vendor/zotero/modules/translators' );
 	}
 	if ( !fileExists( path.join( zoteroDir, 'node_modules' ) ) ) {
-		runCommandOrThrow( 'bun', [ 'install' ], zoteroDir );
+		runCommandOrThrow( 'npm', [ 'install' ], zoteroDir );
 	}
 	if ( translatorsNeedSync() ) {
 		syncMergedTranslators();
@@ -551,7 +552,7 @@ function ensureStyleRuntime() {
 	if ( fileExists( cslDir ) && fileExists( localeDir ) ) {
 		return;
 	}
-	throw new Error( 'Styles are not synced. Run: botcite styles sync' );
+	throw new Error( 'Styles are not synced. Run: citeclaw styles sync' );
 }
 
 function walkFiles( dirPath ) {
@@ -701,7 +702,7 @@ function extractOcrTextFromPdf( pdfPath ) {
 		return '';
 	}
 
-	const tmpDir = fs.mkdtempSync( path.join( os.tmpdir(), 'botcite-ocr-' ) );
+	const tmpDir = fs.mkdtempSync( path.join( os.tmpdir(), 'citeclaw-ocr-' ) );
 	const prefix = path.join( tmpDir, 'page' );
 	try {
 		runCommandOrThrow( 'pdftoppm', [ '-f', '1', '-l', '2', '-png', '-r', '200', pdfPath, prefix ] );
@@ -942,7 +943,7 @@ function createSilentLogger() {
 	} );
 
 	return wrap( bunyan.createLogger( {
-		name: 'botcite',
+		name: 'citeclaw',
 		streams: [ { type: 'raw', stream: discard } ]
 	} ) );
 }
@@ -1179,7 +1180,7 @@ async function withRunningServices( callback ) {
 	serviceConf.interface = '127.0.0.1';
 	serviceConf.zoteroInterface = '127.0.0.1';
 	serviceConf.zoteroPort = zoteroPort;
-	serviceConf.user_agent = 'botcite-cli';
+		serviceConf.user_agent = 'citeclaw-cli';
 	serviceConf.mailto = process.env.MAILTO || 'example@example.com';
 	// eslint-disable-next-line security/detect-non-literal-fs-filename
 	fs.writeFileSync( zoteroLogPath, '' );
@@ -1655,7 +1656,7 @@ function isDryRun(options, auth) {
 function requireZoteroLibrary( auth ) {
 	if ( !auth.libraryId ) {
 		if ( auth.libraryType === 'users' ) {
-			throw new Error( 'Missing Zotero user id. Run: botcite zotero login --user-id <id> --api-key <key>' );
+			throw new Error( 'Missing Zotero user id. Run: citeclaw zotero login --user-id <id> --api-key <key>' );
 		}
 		throw new Error( 'Missing Zotero group id. Use --library-type groups --library-id <id> during login.' );
 	}
@@ -3055,9 +3056,9 @@ async function runWmfCitoid(format, query, options) {
 		headers: {
 			Accept: 'text/plain, application/json;q=0.9',
 			'User-Agent': process.env.USER_AGENT ||
-				`botcite/2.0 (${ process.env.MAILTO || 'example@example.com' })`,
+				`citeclaw/2.0 (${ process.env.MAILTO || 'example@example.com' })`,
 			'Api-User-Agent': process.env.USER_AGENT ||
-				`botcite/2.0 (${ process.env.MAILTO || 'example@example.com' })`
+				`citeclaw/2.0 (${ process.env.MAILTO || 'example@example.com' })`
 		}
 	} );
 	const body = bodyToText( response );
@@ -3179,7 +3180,7 @@ async function semanticScholarApiCall(pathname, options = {}) {
 	const limiter = new HostRateLimiter( 0 );
 	const headers = {
 		Accept: 'application/json',
-		'User-Agent': process.env.USER_AGENT || `botcite/2.0 (${ process.env.MAILTO || 'example@example.com' })`,
+		'User-Agent': process.env.USER_AGENT || `citeclaw/2.0 (${ process.env.MAILTO || 'example@example.com' })`,
 		...options.headers
 	};
 	const apiKey = String( options.s2ApiKey || defaultS2ApiKey ).trim();
@@ -3816,7 +3817,7 @@ function buildOpenUrlQueries( normalized ) {
 	const common = {
 		url_ver: 'Z39.88-2004',
 		ctx_ver: 'Z39.88-2004',
-		sid: 'botcite:fetch-pdf'
+		sid: 'citeclaw:fetch-pdf'
 	};
 
 	if ( normalized.type === 'doi' ) {
@@ -4673,7 +4674,7 @@ function serveMcp() {
 				id,
 				result: {
 					protocolVersion: '2024-11-05',
-					serverInfo: { name: 'botcite', version: '2.0.0' },
+					serverInfo: { name: 'citeclaw', version: '2.0.0' },
 					capabilities: { tools: {} }
 				}
 			} );
@@ -4988,6 +4989,7 @@ module.exports = {
 	detectPdfIdentifierCandidates,
 	extractBestDoiCandidate,
 	extractPdfCandidates,
+	main,
 	normalizeDoi,
 	shouldAttemptPdfOcr
 };

@@ -1,12 +1,12 @@
-# botcite: Architecture and Core Principles
+# CiteClaw: Architecture and Core Principles
 
-This document explains how `botcite` works internally, with focus on execution flow, module boundaries, and design decisions.
+This document explains how `CiteClaw` works internally, with focus on execution flow, module boundaries, and design decisions.
 
 ## 1. System Model
 
-`botcite` has two runtime faces:
+`CiteClaw` has two runtime faces:
 
-- CLI orchestrator (`scripts/botcite.js`): one-shot commands (`cite`, `cite-pdf`, `fetch-pdf`, `batch`, etc.) and MCP stdio server mode.
+- CLI orchestrator (`scripts/citeclaw.js`): one-shot commands (`cite`, `cite-pdf`, `fetch-pdf`, `batch`, etc.) and MCP stdio server mode.
 - HTTP service (`server.js` + `app.js`): Citoid-compatible API endpoints used by CLI flows.
 
 Both faces share the same core citation pipeline in `lib/`.
@@ -30,7 +30,7 @@ Core modules:
 
 ## 3. MCP Design
 
-`botcite mcp` exposes the same capabilities over JSON-RPC framing (`Content-Length` over stdio).
+`citeclaw mcp` exposes the same capabilities over JSON-RPC framing (`Content-Length` over stdio).
 
 Implemented MCP methods:
 

@@ -6,9 +6,9 @@ const {
 	extractBestDoiCandidate,
 	normalizeDoi,
 	shouldAttemptPdfOcr
-} = require( '../../../scripts/botcite.js' );
+} = require( '../../../scripts/citeclaw.js' );
 
-describe( 'scripts/botcite.js', () => {
+describe( 'scripts/citeclaw.js', () => {
 
 	describe( 'normalizeDoi()', () => {
 
