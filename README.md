@@ -15,7 +15,7 @@ It is designed for two related jobs:
 - an HTTP service compatible with Citoid-style API flows
 - an MCP server mode for agent/tool integrations
 - Zotero automation for query, cite, add, update, notes, dedup, enrichment, and export
-- vendored translator and CSL style assets for reproducible local runs
+- optional translator/style sync commands for broader coverage and local CSL rendering
 
 ## Fast Start
 
@@ -36,6 +36,8 @@ npx citeclaw citoid bibtex "https://arxiv.org/abs/2305.19860"
 npx citeclaw citoid bibtex "https://aclanthology.org/2023.emnlp-main.398/"
 npx citeclaw cite mediawiki "https://arxiv.org/abs/1706.03762"
 ```
+
+Fresh npm installs can run normal citation commands directly. `CiteClaw` will bootstrap Zotero and build a local translator runtime automatically from the bundled Zotero translator set.
 
 ## Local Service
 
@@ -115,6 +117,23 @@ Safety defaults:
 - destructive deletes require confirmation unless `-y`
 - `update` and `delete` use version preconditions
 - `safe-mode` and `--dry-run` are available for write protection
+
+## Runtime Sync
+
+For npm installs, extra runtime assets can be synced explicitly when you want broader translator coverage or local style rendering:
+
+```bash
+npx citeclaw translators sync
+npx citeclaw styles sync
+```
+
+Notes:
+
+- `translators sync` will clone or update the translator sources with `git` when needed
+- `styles sync` will clone or update style repositories with `git` when local CSL styles are unavailable
+- normal `cite` commands can run without manually syncing translators first
+- `cite-style` will fetch style sources on demand if local styles are missing
+- if `git` is not installed, the commands fail with an explicit message
 
 ## Bibliography Curation
 

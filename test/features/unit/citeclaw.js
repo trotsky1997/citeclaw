@@ -21,6 +21,31 @@ describe( 'scripts/citeclaw.js', () => {
 
 	} );
 
+	describe( 'normalizeArxivId()', () => {
+
+		it( 'keeps explicit arXiv versions for abs urls', () => {
+			assert.strictEqual(
+				require( '../../../scripts/citeclaw.js' ).normalizeArxivId( 'https://arxiv.org/abs/2510.14901v1' ),
+				'2510.14901v1'
+			);
+		} );
+
+		it( 'normalizes html arXiv urls without dropping explicit versions', () => {
+			assert.strictEqual(
+				require( '../../../scripts/citeclaw.js' ).normalizeArxivId( 'https://arxiv.org/html/2510.14901v1' ),
+				'2510.14901v1'
+			);
+		} );
+
+		it( 'normalizes pdf arXiv urls without dropping explicit versions', () => {
+			assert.strictEqual(
+				require( '../../../scripts/citeclaw.js' ).normalizeArxivId( 'https://arxiv.org/pdf/2510.14901v1.pdf' ),
+				'2510.14901v1'
+			);
+		} );
+
+	} );
+
 	describe( 'extractBestDoiCandidate()', () => {
 
 		it( 'prefers the front-matter DOI over reference list DOIs', () => {

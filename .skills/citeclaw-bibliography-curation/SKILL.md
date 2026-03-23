@@ -115,7 +115,19 @@ npx citeclaw citoid bibtex "https://aclanthology.org/2023.emnlp-main.398/"
 npx citeclaw crossref "conversational recommender systems survey" --json
 ```
 
-Use the GitHub-hosted `npx` form above as the default documented interface. Only switch to a local checkout if you explicitly need to inspect or patch CiteClaw itself.
+Use the npm-hosted `npx citeclaw ...` form above as the default documented interface. Only switch to a local checkout if you explicitly need to inspect or patch CiteClaw itself.
+
+## Runtime sync
+
+Normal citation commands can run directly. Use explicit sync commands when you want broader translator coverage or local CSL rendering:
+
+```bash
+npx citeclaw translators sync
+npx citeclaw styles sync
+```
+
+Use `translators sync` to pull additional official/community translators.
+Use `styles sync` when you need local `cite-style` rendering or a larger CSL style set.
 
 ## When CiteClaw is not enough
 

@@ -28,13 +28,46 @@ const vendoredOfficialStylesDir = path.join( rootDir, 'vendor', 'styles-official
 const localDir = path.join( rootDir, '.local' );
 const logDir = path.join( localDir, 'logs' );
 const stateDir = path.join( localDir, 'state' );
+const localTranslatorSourcesDir = path.join( localDir, 'translator-sources' );
 const mergedTranslatorsDir = process.env.LOCAL_TRANSLATORS_DIR ||
 	path.join( localDir, 'translators' );
 const stylesRootDir = process.env.LOCAL_STYLES_DIR ||
 	path.join( localDir, 'styles' );
+const localStyleSourcesDir = path.join( localDir, 'style-sources' );
 const cslDir = path.join( stylesRootDir, 'csl' );
 const localeDir = path.join( stylesRootDir, 'locales' );
 const defaultStyleSources = [ vendoredOfficialStylesDir, vendoredStylesDir ];
+const defaultStyleGitSources = [
+	{
+		url: 'https://github.com/citation-style-language/styles.git',
+		dir: path.join( localStyleSourcesDir, 'styles-official' )
+	},
+	{
+		url: 'https://github.com/zotero-chinese/styles.git',
+		dir: path.join( localStyleSourcesDir, 'styles' )
+	}
+];
+const defaultZoteroGitSource = 'https://github.com/zotero/translation-server-v2.git';
+const defaultTranslatorGitSources = [
+	{
+		url: 'https://github.com/zotero/translators.git',
+		dir: path.join( localTranslatorSourcesDir, 'translators-official' )
+	},
+	{
+		url: 'https://github.com/l0o0/translators_CN.git',
+		dir: path.join( localTranslatorSourcesDir, 'translators_CN' )
+	}
+];
+
+function resolvedOfficialTranslatorsDir() {
+	const fallback = defaultTranslatorGitSources[ 0 ].dir;
+	return fileExists( officialTranslatorsDir ) ? officialTranslatorsDir : fallback;
+}
+
+function resolvedCnTranslatorsDir() {
+	const fallback = defaultTranslatorGitSources[ 1 ].dir;
+	return fileExists( cnTranslatorsDir ) ? cnTranslatorsDir : fallback;
+}
 const defaultPdfFetchIntervalMs = parseInt( process.env.CITOID_LOCAL_FETCH_INTERVAL_MS || '800', 10 );
 const defaultRequestTimeoutMs = parseInt( process.env.CITOID_LOCAL_FETCH_TIMEOUT_MS || '15000', 10 );
 const defaultProbeBodyBytes = parseInt( process.env.CITOID_LOCAL_PROBE_BODY_BYTES || '1572864', 10 );
@@ -80,6 +113,7 @@ function usage() {
 	console.error( '  citeclaw cite-pdf [--headers] [--debug-pdf] <pdf-path>' );
 	console.error( '  citeclaw fetch-pdf [--base <openurl-base>] [--out <file.pdf>] <doi|arxiv|url>' );
 	console.error( '  citeclaw openurl-resolve [--base <openurl-base>] <doi|arxiv|url>' );
+	console.error( '  citeclaw translators sync' );
 	console.error( '  citeclaw zotero <login|logout|whoami|query|dump|cite|add|delete|update|note|sync-cite|dedup|enrich|export|watch|templates|safe-mode> [...]' );
 	console.error( '  citeclaw batch --op <cite|cite-style|fetch-pdf|openurl-resolve> --in <file>' );
 	console.error( '  citeclaw styles sync [--repo <git-url>]' );
@@ -106,6 +140,7 @@ function usage() {
 	console.error( "  citeclaw zotero query 'transformer'" );
 	console.error( '  citeclaw zotero cite AB12CD34' );
 	console.error( '  citeclaw batch --op cite --format bibtex --in ./ids.txt --out-jsonl ./result.jsonl' );
+	console.error( '  citeclaw translators sync' );
 	console.error( 'options:' );
 	console.error( '  --concurrency <n>  batch worker count (default: 4)' );
 	console.error( '  --user-id <id>     Zotero user id (or set ZOTERO_USER_ID)' );
@@ -469,13 +504,15 @@ function repoHeadOrMissing( repoPath ) {
 
 function translatorsNeedSync() {
 	const stampPath = path.join( stateDir, 'translators-sync.stamp' );
+	const activeOfficialDir = resolvedOfficialTranslatorsDir();
+	const activeCnDir = resolvedCnTranslatorsDir();
 	const hasMerged = fileExists( mergedTranslatorsDir ) &&
 		fs.readdirSync( mergedTranslatorsDir ).some( ( name ) => name.endsWith( '.js' ) );
 	if ( !hasMerged ) {
 		return true;
 	}
 
-	const currentStamp = `zotero=${ repoHeadOrMissing( path.join( zoteroDir, 'modules', 'translators' ) ) };official=${ repoHeadOrMissing( officialTranslatorsDir ) };cn=${ repoHeadOrMissing( cnTranslatorsDir ) }`;
+	const currentStamp = `zotero=${ repoHeadOrMissing( path.join( zoteroDir, 'modules', 'translators' ) ) };official=${ repoHeadOrMissing( activeOfficialDir ) };cn=${ repoHeadOrMissing( activeCnDir ) }`;
 	let previousStamp = '';
 	if ( fileExists( stampPath ) ) {
 		previousStamp = fs.readFileSync( stampPath, 'utf8' ).trim();
@@ -485,7 +522,7 @@ function translatorsNeedSync() {
 
 function writeTranslatorStamp() {
 	const stampPath = path.join( stateDir, 'translators-sync.stamp' );
-	const stamp = `zotero=${ repoHeadOrMissing( path.join( zoteroDir, 'modules', 'translators' ) ) };official=${ repoHeadOrMissing( officialTranslatorsDir ) };cn=${ repoHeadOrMissing( cnTranslatorsDir ) }`;
+	const stamp = `zotero=${ repoHeadOrMissing( path.join( zoteroDir, 'modules', 'translators' ) ) };official=${ repoHeadOrMissing( resolvedOfficialTranslatorsDir() ) };cn=${ repoHeadOrMissing( resolvedCnTranslatorsDir() ) }`;
 	fs.writeFileSync( stampPath, `${ stamp }\n` );
 }
 
@@ -493,6 +530,8 @@ function syncMergedTranslators() {
 	fs.rmSync( mergedTranslatorsDir, { recursive: true, force: true } );
 	fs.mkdirSync( mergedTranslatorsDir, { recursive: true } );
 	const zoteroTranslators = path.join( zoteroDir, 'modules', 'translators' );
+	const activeOfficialDir = resolvedOfficialTranslatorsDir();
+	const activeCnDir = resolvedCnTranslatorsDir();
 	if ( fileExists( zoteroTranslators ) ) {
 		fs.readdirSync( zoteroTranslators )
 			.filter( ( name ) => name.endsWith( '.js' ) )
@@ -503,22 +542,22 @@ function syncMergedTranslators() {
 				);
 			} );
 	}
-	if ( fileExists( officialTranslatorsDir ) ) {
-		fs.readdirSync( officialTranslatorsDir )
+	if ( fileExists( activeOfficialDir ) ) {
+		fs.readdirSync( activeOfficialDir )
 			.filter( ( name ) => name.endsWith( '.js' ) )
 			.forEach( ( name ) => {
 				fs.copyFileSync(
-					path.join( officialTranslatorsDir, name ),
+					path.join( activeOfficialDir, name ),
 					path.join( mergedTranslatorsDir, name )
 				);
 			} );
 	}
-	if ( fileExists( cnTranslatorsDir ) ) {
-		fs.readdirSync( cnTranslatorsDir )
+	if ( fileExists( activeCnDir ) ) {
+		fs.readdirSync( activeCnDir )
 			.filter( ( name ) => name.endsWith( '.js' ) )
 			.forEach( ( name ) => {
 				fs.copyFileSync(
-					path.join( cnTranslatorsDir, name ),
+					path.join( activeCnDir, name ),
 					path.join( mergedTranslatorsDir, name )
 				);
 			} );
@@ -526,12 +565,73 @@ function syncMergedTranslators() {
 	writeTranslatorStamp();
 }
 
+function syncTranslators() {
+	ensureDirs();
+	const sources = ensureDefaultTranslatorSources();
+	syncMergedTranslators();
+	const mergedCount = fs.readdirSync( mergedTranslatorsDir )
+		.filter( ( name ) => name.endsWith( '.js' ) )
+		.length;
+	process.stdout.write(
+		`translators synced to ${ mergedTranslatorsDir } from ${ sources.officialDir }, ${ sources.cnDir } and ${ path.join( zoteroDir, 'modules', 'translators' ) } (${ mergedCount } files)\n`
+	);
+}
+
+function ensureDefaultTranslatorSources() {
+	const existingOfficial = fileExists( officialTranslatorsDir ) ? officialTranslatorsDir : null;
+	const existingCn = fileExists( cnTranslatorsDir ) ? cnTranslatorsDir : null;
+	if ( existingOfficial && existingCn ) {
+		return {
+			officialDir: existingOfficial,
+			cnDir: existingCn
+		};
+	}
+	if ( !commandExists( 'git' ) ) {
+		throw new Error(
+			'missing translator sources and git is not installed; install git or provide vendored translator directories'
+		);
+	}
+	fs.mkdirSync( localTranslatorSourcesDir, { recursive: true } );
+	defaultTranslatorGitSources.forEach( ( source ) => {
+		if ( fileExists( source.dir ) ) {
+			runCommandOrThrow( 'git', [ '-C', source.dir, 'pull', '--ff-only' ] );
+			return;
+		}
+		runCommandOrThrow( 'git', [ 'clone', '--depth', '1', source.url, source.dir ] );
+	} );
+	return {
+		officialDir: defaultTranslatorGitSources[ 0 ].dir,
+		cnDir: defaultTranslatorGitSources[ 1 ].dir
+	};
+}
+
+function ensureDefaultZoteroSource() {
+	if ( repoReady( zoteroDir ) ) {
+		if ( fileExists( path.join( zoteroDir, '.git' ) ) ) {
+			if ( !commandExists( 'git' ) ) {
+				throw new Error( 'git is required to update bundled zotero source' );
+			}
+			runCommandOrThrow( 'git', [ '-C', zoteroDir, 'pull', '--ff-only' ] );
+			runCommandOrThrow( 'git', [ '-C', zoteroDir, 'submodule', 'update', '--init', '--recursive' ] );
+		}
+		return;
+	}
+	if ( !commandExists( 'git' ) ) {
+		throw new Error(
+			'missing zotero source and git is not installed; install git or provide ZOTERO_DIR'
+		);
+	}
+	fs.mkdirSync( path.dirname( zoteroDir ), { recursive: true } );
+	runCommandOrThrow( 'git', [ 'clone', '--depth', '1', '--recurse-submodules', defaultZoteroGitSource, zoteroDir ] );
+}
+
 function bootstrapLocalEnvironment() {
 	ensureDirs();
 	const installer = resolveInstallCommand();
-	if ( !repoReady( zoteroDir ) || !repoReady( cnTranslatorsDir ) || !repoReady( officialTranslatorsDir ) ) {
+	ensureDefaultZoteroSource();
+	if ( !repoReady( zoteroDir ) ) {
 		throw new Error(
-			'missing vendored repos under vendor/. pull the complete repository content.'
+			'missing zotero source; install git or provide ZOTERO_DIR'
 		);
 	}
 
@@ -569,7 +669,28 @@ function ensureStyleRuntime() {
 	if ( fileExists( cslDir ) && fileExists( localeDir ) ) {
 		return;
 	}
-	throw new Error( 'Styles are not synced. Run: citeclaw styles sync' );
+	syncStyles( {} );
+}
+
+function ensureDefaultStyleSources() {
+	const existing = defaultStyleSources.filter( ( sourceDir ) => fileExists( sourceDir ) );
+	if ( existing.length ) {
+		return existing;
+	}
+	if ( !commandExists( 'git' ) ) {
+		throw new Error(
+			'no bundled style sources found in this package, and git is not installed; install git or pass --repo <styles-dir>'
+		);
+	}
+	fs.mkdirSync( localStyleSourcesDir, { recursive: true } );
+	defaultStyleGitSources.forEach( ( source ) => {
+		if ( fileExists( source.dir ) ) {
+			runCommandOrThrow( 'git', [ '-C', source.dir, 'pull', '--ff-only' ] );
+			return;
+		}
+		runCommandOrThrow( 'git', [ 'clone', '--depth', '1', source.url, source.dir ] );
+	} );
+	return defaultStyleGitSources.map( ( source ) => source.dir );
 }
 
 function walkFiles( dirPath ) {
@@ -1383,7 +1504,7 @@ async function runCitationFromPdf( pdfPath, options ) {
 	} );
 }
 
-async function syncStyles( options ) {
+function syncStyles( options ) {
 	ensureDirs();
 	fs.mkdirSync( cslDir, { recursive: true } );
 	fs.mkdirSync( localeDir, { recursive: true } );
@@ -1393,15 +1514,10 @@ async function syncStyles( options ) {
 				options.repo :
 				path.join( rootDir, options.repo || 'vendor/styles' )
 		] :
-		defaultStyleSources;
+		ensureDefaultStyleSources();
 	const sourceDirs = configuredSourceDirs.filter( ( sourceDir ) => fileExists( sourceDir ) );
 	if ( options.repo && !sourceDirs.length ) {
 		throw new Error( `styles source not found: ${ configuredSourceDirs.join( ', ' ) }` );
-	}
-	if ( !options.repo && !sourceDirs.length ) {
-		throw new Error(
-			'no bundled style sources found in this package; provide --repo <styles-dir> or run from a full source checkout'
-		);
 	}
 
 	let copiedCount = 0;
@@ -1578,7 +1694,7 @@ function isHttpUrl( raw ) {
 function normalizeArxivId( raw ) {
 	const value = String( raw || '' ).trim();
 	const id = value
-		.replace( /^https?:\/\/arxiv\.org\/(?:abs|pdf)\//i, '' )
+		.replace( /^https?:\/\/arxiv\.org\/(?:abs|pdf|html)\//i, '' )
 		.replace( /\.pdf$/i, '' )
 		.replace( /^arxiv:/i, '' )
 		.trim();
@@ -4869,6 +4985,22 @@ function main() {
 		return;
 	}
 
+	if ( action === 'translators' ) {
+		const parsed = parseOptions( process.argv.slice( 3 ) );
+		const subAction = parsed.args[ 0 ];
+		if ( subAction !== 'sync' ) {
+			usage();
+			process.exit( 1 );
+		}
+		try {
+			syncTranslators();
+			process.exit( 0 );
+		} catch ( error ) {
+			handleCommandError( error, parsed, 'translators', 'sync' );
+		}
+		return;
+	}
+
 	if ( action === 'api' ) {
 		const parsed = parseOptions( process.argv.slice( 3 ) );
 		const requestPath = parsed.args.join( ' ' ).trim();
@@ -5012,6 +5144,7 @@ module.exports = {
 	extractBestDoiCandidate,
 	extractPdfCandidates,
 	main,
+	normalizeArxivId,
 	normalizeDoi,
 	shouldAttemptPdfOcr
 };
