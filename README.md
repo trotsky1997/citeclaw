@@ -34,12 +34,12 @@ Primary command is `citeclaw`. Legacy `botcite` remains available as an alias fo
 Entry:
 
 ```bash
-npx github:trotsky1997/botcite#master --help
-npx github:trotsky1997/botcite#master citoid formats
-npx github:trotsky1997/botcite#master citoid bibtex "10.1021/acsomega.2c05310"
-npx github:trotsky1997/botcite#master crossref "10.1021/acsomega.2c05310"
-npx github:trotsky1997/botcite#master semantic-scholar "10.1021/acsomega.2c05310"
-npx github:trotsky1997/botcite#master cite bibtex 10.48550/arXiv.1706.03762
+npx github:trotsky1997/citeclaw#master --help
+npx github:trotsky1997/citeclaw#master citoid formats
+npx github:trotsky1997/citeclaw#master citoid bibtex "10.1021/acsomega.2c05310"
+npx github:trotsky1997/citeclaw#master crossref "10.1021/acsomega.2c05310"
+npx github:trotsky1997/citeclaw#master semantic-scholar "10.1021/acsomega.2c05310"
+npx github:trotsky1997/citeclaw#master cite bibtex 10.48550/arXiv.1706.03762
 ```
 
 ## MCP Mode
@@ -47,7 +47,7 @@ npx github:trotsky1997/botcite#master cite bibtex 10.48550/arXiv.1706.03762
 Start MCP server:
 
 ```bash
-npx github:trotsky1997/botcite#master mcp
+npx github:trotsky1997/citeclaw#master mcp
 ```
 
 Implemented methods:
@@ -71,26 +71,26 @@ Current MCP tools:
 Login:
 
 ```bash
-npx github:trotsky1997/botcite#master zotero whoami --api-key <zotero_api_key>
-npx github:trotsky1997/botcite#master zotero login --api-key <zotero_api_key>
+npx github:trotsky1997/citeclaw#master zotero whoami --api-key <zotero_api_key>
+npx github:trotsky1997/citeclaw#master zotero login --api-key <zotero_api_key>
 ```
 
 Core operations:
 
 ```bash
-npx github:trotsky1997/botcite#master zotero query "transformer" --limit 20
-npx github:trotsky1997/botcite#master zotero cite AB12CD34
-npx github:trotsky1997/botcite#master zotero add '{"itemType":"journalArticle","title":"Demo"}'
-npx github:trotsky1997/botcite#master zotero update AB12CD34 '{"title":"Updated title"}'
-npx github:trotsky1997/botcite#master zotero delete AB12CD34
+npx github:trotsky1997/citeclaw#master zotero query "transformer" --limit 20
+npx github:trotsky1997/citeclaw#master zotero cite AB12CD34
+npx github:trotsky1997/citeclaw#master zotero add '{"itemType":"journalArticle","title":"Demo"}'
+npx github:trotsky1997/citeclaw#master zotero update AB12CD34 '{"title":"Updated title"}'
+npx github:trotsky1997/citeclaw#master zotero delete AB12CD34
 ```
 
 Notes:
 
 ```bash
-npx github:trotsky1997/botcite#master zotero note add AB12CD34 "<p>Key takeaway: ...</p>"
-npx github:trotsky1997/botcite#master zotero note search "transformer" --parent AB12CD34
-npx github:trotsky1997/botcite#master zotero note cite-links "doi" --apply
+npx github:trotsky1997/citeclaw#master zotero note add AB12CD34 "<p>Key takeaway: ...</p>"
+npx github:trotsky1997/citeclaw#master zotero note search "transformer" --parent AB12CD34
+npx github:trotsky1997/citeclaw#master zotero note cite-links "doi" --apply
 ```
 
 Safety model:
@@ -101,21 +101,21 @@ Safety model:
 ## Advanced Workflows
 
 ```bash
-npx github:trotsky1997/botcite#master zotero safe-mode on
-npx github:trotsky1997/botcite#master zotero sync-cite --apply
-npx github:trotsky1997/botcite#master zotero dedup --limit 300
-npx github:trotsky1997/botcite#master zotero enrich --apply
-npx github:trotsky1997/botcite#master zotero export md --out ./library.md
-npx github:trotsky1997/botcite#master zotero watch "transformer" --out-bib ./watch.bib --interval 60
+npx github:trotsky1997/citeclaw#master zotero safe-mode on
+npx github:trotsky1997/citeclaw#master zotero sync-cite --apply
+npx github:trotsky1997/citeclaw#master zotero dedup --limit 300
+npx github:trotsky1997/citeclaw#master zotero enrich --apply
+npx github:trotsky1997/citeclaw#master zotero export md --out ./library.md
+npx github:trotsky1997/citeclaw#master zotero watch "transformer" --out-bib ./watch.bib --interval 60
 ```
 
 ## Full Semantic Scholar Graph Access
 
 ```bash
-npx github:trotsky1997/botcite#master semantic-scholar api /paper/search --params '{"query":"transformer","limit":3}'
-npx github:trotsky1997/botcite#master semantic-scholar paper-search "transformer attention" --limit 5 --fields "title,year,authors,url"
-npx github:trotsky1997/botcite#master semantic-scholar paper-batch @./paper_ids.txt --fields "title,year,authors"
-npx github:trotsky1997/botcite#master semantic-scholar author 1741101 --fields "name,paperCount,citationCount"
+npx github:trotsky1997/citeclaw#master semantic-scholar api /paper/search --params '{"query":"transformer","limit":3}'
+npx github:trotsky1997/citeclaw#master semantic-scholar paper-search "transformer attention" --limit 5 --fields "title,year,authors,url"
+npx github:trotsky1997/citeclaw#master semantic-scholar paper-batch @./paper_ids.txt --fields "title,year,authors"
+npx github:trotsky1997/citeclaw#master semantic-scholar author 1741101 --fields "name,paperCount,citationCount"
 ```
 
 Note: Semantic Scholar may return `429` without API key. Use `--s2-api-key <key>` or set `S2_API_KEY`.
