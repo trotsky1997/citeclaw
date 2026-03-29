@@ -469,6 +469,46 @@ function runCommandOrThrow( command, args, cwd ) {
 	return result;
 }
 
+function styleLocaleUrls( locale ) {
+	const fileName = `locales-${ locale }.xml`;
+	return [
+		`https://raw.githubusercontent.com/citation-style-language/locales/master/${ fileName }`,
+		`https://github.com/citation-style-language/locales/raw/master/${ fileName }`,
+		`https://cdn.jsdelivr.net/gh/citation-style-language/locales@master/${ fileName }`
+	];
+}
+
+function downloadFileWithCurlFallbacks( urls, dest, label, runner ) {
+	const runCommand = runner || runCommandOrThrow;
+	const candidates = Array.isArray( urls ) ? urls : [ urls ];
+	const targetLabel = label || path.basename( dest );
+	const tempDest = `${ dest }.tmp`;
+	const failures = [];
+	fs.mkdirSync( path.dirname( dest ), { recursive: true } );
+
+	for ( const url of candidates ) {
+		try {
+			fs.rmSync( tempDest, { force: true } );
+			runCommand( 'curl', [
+				'-fsSL',
+				'--retry', '3',
+				'--retry-delay', '1',
+				'--retry-all-errors',
+				url,
+				'-o', tempDest
+			] );
+			fs.rmSync( dest, { force: true } );
+			fs.renameSync( tempDest, dest );
+			return;
+		} catch ( error ) {
+			failures.push( `${ url }: ${ error.message }` );
+		}
+	}
+
+	fs.rmSync( tempDest, { force: true } );
+	throw new Error( `failed to download ${ targetLabel }: ${ failures.join( ' | ' ) }` );
+}
+
 function resolveInstallCommand() {
 	if ( commandExists( 'npm' ) ) {
 		return { command: 'npm', args: [ 'install' ] };
@@ -1504,19 +1544,24 @@ async function runCitationFromPdf( pdfPath, options ) {
 	} );
 }
 
-function syncStyles( options ) {
+function syncStyles( options, dependencies ) {
+	const styleOptions = options || {};
+	const hooks = dependencies || {};
+	const downloadFile = hooks.downloadFile || downloadFileWithCurlFallbacks;
+	const downloadUsesCurl = downloadFile === downloadFileWithCurlFallbacks;
+
 	ensureDirs();
 	fs.mkdirSync( cslDir, { recursive: true } );
 	fs.mkdirSync( localeDir, { recursive: true } );
-	const configuredSourceDirs = options.repo ?
+	const configuredSourceDirs = styleOptions.repo ?
 		[
-			path.isAbsolute( options.repo || '' ) ?
-				options.repo :
-				path.join( rootDir, options.repo || 'vendor/styles' )
+			path.isAbsolute( styleOptions.repo || '' ) ?
+				styleOptions.repo :
+				path.join( rootDir, styleOptions.repo || 'vendor/styles' )
 		] :
 		ensureDefaultStyleSources();
 	const sourceDirs = configuredSourceDirs.filter( ( sourceDir ) => fileExists( sourceDir ) );
-	if ( options.repo && !sourceDirs.length ) {
+	if ( styleOptions.repo && !sourceDirs.length ) {
 		throw new Error( `styles source not found: ${ configuredSourceDirs.join( ', ' ) }` );
 	}
 
@@ -1532,13 +1577,12 @@ function syncStyles( options ) {
 	} );
 
 	const localeTargets = [ 'en-US', 'zh-CN' ];
-	if ( !commandExists( 'curl' ) ) {
+	if ( downloadUsesCurl && !commandExists( 'curl' ) ) {
 		throw new Error( 'curl is required for styles sync' );
 	}
 	for ( const locale of localeTargets ) {
-		const localeUrl = `https://raw.githubusercontent.com/citation-style-language/locales/master/locales-${ locale }.xml`;
 		const dest = path.join( localeDir, `locales-${ locale }.xml` );
-		runCommandOrThrow( 'curl', [ '-fsSL', localeUrl, '-o', dest ] );
+		downloadFile( styleLocaleUrls( locale ), dest, `locale ${ locale }` );
 	}
 
 	process.stdout.write( `styles synced to ${ cslDir } from ${ sourceDirs.join( ', ' ) } (copied ${ copiedCount } files)\n` );
@@ -4979,9 +5023,11 @@ function main() {
 			usage();
 			process.exit( 1 );
 		}
-		syncStyles( parsed ).catch( ( error ) => {
+		try {
+			syncStyles( parsed );
+		} catch ( error ) {
 			handleCommandError( error, parsed, 'styles', 'sync' );
-		} );
+		}
 		return;
 	}
 
@@ -5140,12 +5186,14 @@ function main() {
 }
 
 module.exports = {
+	downloadFileWithCurlFallbacks,
 	detectPdfIdentifierCandidates,
 	extractBestDoiCandidate,
 	extractPdfCandidates,
 	main,
 	normalizeArxivId,
 	normalizeDoi,
+	syncStyles,
 	shouldAttemptPdfOcr
 };
 

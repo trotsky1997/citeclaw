@@ -165,6 +165,23 @@ Current package metadata and entrypoints live in:
 - [package.json](/mnt/e/botcite/package.json)
 - [scripts/citeclaw.js](/mnt/e/botcite/scripts/citeclaw.js)
 
+## npm Publishing
+
+This repo includes a GitHub Actions workflow for npm publishing:
+
+- workflow file: `.github/workflows/npm-publish.yml`
+- trigger: push a tag like `v2.0.8` that matches `package.json`'s `version`
+- required secret: add `NPM_TOKEN` in GitHub repository settings with publish permission for the `citeclaw` package
+
+Typical release flow:
+
+```bash
+npm version patch
+git push origin master --follow-tags
+```
+
+The workflow installs dependencies with `npm ci`, checks that the tag matches `package.json`, validates the tarball with `npm pack --dry-run`, and then runs `npm publish --access public --provenance`.
+
 ## Notes
 
 - The npm package name and primary CLI are `citeclaw`.
