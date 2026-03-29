@@ -6,6 +6,7 @@ const {
 	extractBestDoiCandidate,
 	normalizeCommandForSpawn,
 	normalizeDoi,
+	resolveSpawnSettings,
 	shouldAttemptPdfOcr
 } = require( '../../../scripts/citeclaw.js' );
 
@@ -38,6 +39,31 @@ describe( 'scripts/citeclaw.js', () => {
 		it( 'does not rewrite explicit paths or extensions', () => {
 			assert.strictEqual( normalizeCommandForSpawn( 'C:\\tools\\npm.cmd', 'win32' ), 'C:\\tools\\npm.cmd' );
 			assert.strictEqual( normalizeCommandForSpawn( 'bun.exe', 'win32' ), 'bun.exe' );
+		} );
+
+	} );
+
+	describe( 'resolveSpawnSettings()', () => {
+
+		it( 'runs Windows .cmd tools through a shell', () => {
+			assert.deepEqual( resolveSpawnSettings( 'npm', 'win32' ), {
+				command: 'npm.cmd',
+				shell: true
+			} );
+		} );
+
+		it( 'keeps Windows executables as direct child processes', () => {
+			assert.deepEqual( resolveSpawnSettings( 'git', 'win32' ), {
+				command: 'git.exe',
+				shell: false
+			} );
+		} );
+
+		it( 'does not enable a shell on non-Windows platforms', () => {
+			assert.deepEqual( resolveSpawnSettings( 'npm', 'linux' ), {
+				command: 'npm',
+				shell: false
+			} );
 		} );
 
 	} );

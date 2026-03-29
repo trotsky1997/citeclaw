@@ -361,6 +361,23 @@ function normalizeCommandForSpawn( command, platform ) {
 	return windowsCommands[ command ] || command;
 }
 
+function resolveSpawnSettings( command, platform ) {
+	const resolvedCommand = normalizeCommandForSpawn( command, platform );
+	const activePlatform = platform || process.platform;
+	return {
+		command: resolvedCommand,
+		shell: activePlatform === 'win32' && /\.(?:cmd|bat)$/i.test( resolvedCommand )
+	};
+}
+
+function spawnSyncResolved( command, args, options ) {
+	const resolved = resolveSpawnSettings( command );
+	return spawnSync( resolved.command, args, {
+		...( options || {} ),
+		shell: resolved.shell
+	} );
+}
+
 function commandExists( command ) {
 	const args = process.platform === 'win32' ? [ '/c', 'where', command ] : [ '-lc', `command -v ${ command }` ];
 	const found = spawnSync( process.platform === 'win32' ? 'cmd' : 'bash', args, {
@@ -457,7 +474,7 @@ function jsonOut( value ) {
 }
 
 function runCommandText( command, args ) {
-	const result = spawnSync( normalizeCommandForSpawn( command ), args, {
+	const result = spawnSyncResolved( command, args, {
 		stdio: 'pipe',
 		encoding: 'utf8'
 	} );
@@ -472,7 +489,7 @@ function runCommandText( command, args ) {
 }
 
 function runCommandOrThrow( command, args, cwd ) {
-	const result = spawnSync( normalizeCommandForSpawn( command ), args, {
+	const result = spawnSyncResolved( command, args, {
 		cwd: cwd || rootDir,
 		stdio: 'pipe',
 		encoding: 'utf8'
@@ -5212,6 +5229,7 @@ module.exports = {
 	normalizeCommandForSpawn,
 	normalizeArxivId,
 	normalizeDoi,
+	resolveSpawnSettings,
 	syncStyles,
 	shouldAttemptPdfOcr
 };
