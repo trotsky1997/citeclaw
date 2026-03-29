@@ -4,6 +4,7 @@ const assert = require( '../../utils/assert.js' );
 const {
 	detectPdfIdentifierCandidates,
 	extractBestDoiCandidate,
+	normalizeCommandForSpawn,
 	normalizeDoi,
 	shouldAttemptPdfOcr
 } = require( '../../../scripts/citeclaw.js' );
@@ -17,6 +18,26 @@ describe( 'scripts/citeclaw.js', () => {
 				normalizeDoi( 'https://doi.org/10.1021/acsomega.2c05310).' ),
 				'10.1021/acsomega.2c05310'
 			);
+		} );
+
+	} );
+
+	describe( 'normalizeCommandForSpawn()', () => {
+
+		it( 'keeps commands unchanged on non-Windows platforms', () => {
+			assert.strictEqual( normalizeCommandForSpawn( 'npm', 'linux' ), 'npm' );
+			assert.strictEqual( normalizeCommandForSpawn( 'git', 'darwin' ), 'git' );
+		} );
+
+		it( 'maps common CLI tools to Windows executables', () => {
+			assert.strictEqual( normalizeCommandForSpawn( 'npm', 'win32' ), 'npm.cmd' );
+			assert.strictEqual( normalizeCommandForSpawn( 'git', 'win32' ), 'git.exe' );
+			assert.strictEqual( normalizeCommandForSpawn( 'curl', 'win32' ), 'curl.exe' );
+		} );
+
+		it( 'does not rewrite explicit paths or extensions', () => {
+			assert.strictEqual( normalizeCommandForSpawn( 'C:\\tools\\npm.cmd', 'win32' ), 'C:\\tools\\npm.cmd' );
+			assert.strictEqual( normalizeCommandForSpawn( 'bun.exe', 'win32' ), 'bun.exe' );
 		} );
 
 	} );

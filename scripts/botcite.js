@@ -343,6 +343,24 @@ function fileExists( filePath ) {
 	}
 }
 
+function normalizeCommandForSpawn( command, platform ) {
+	const activePlatform = platform || process.platform;
+	if ( activePlatform !== 'win32' ) {
+		return command;
+	}
+	if ( /[\\/]/.test( command ) || /\.[^\\/]+$/.test( command ) ) {
+		return command;
+	}
+	const windowsCommands = {
+		npm: 'npm.cmd',
+		npx: 'npx.cmd',
+		git: 'git.exe',
+		curl: 'curl.exe',
+		bun: 'bun.exe'
+	};
+	return windowsCommands[ command ] || command;
+}
+
 function commandExists( command ) {
 	const args = process.platform === 'win32' ? [ '/c', 'where', command ] : [ '-lc', `command -v ${ command }` ];
 	const found = spawnSync( process.platform === 'win32' ? 'cmd' : 'bash', args, {
@@ -439,7 +457,7 @@ function jsonOut( value ) {
 }
 
 function runCommandText( command, args ) {
-	const result = spawnSync( command, args, {
+	const result = spawnSync( normalizeCommandForSpawn( command ), args, {
 		stdio: 'pipe',
 		encoding: 'utf8'
 	} );
@@ -454,7 +472,7 @@ function runCommandText( command, args ) {
 }
 
 function runCommandOrThrow( command, args, cwd ) {
-	const result = spawnSync( command, args, {
+	const result = spawnSync( normalizeCommandForSpawn( command ), args, {
 		cwd: cwd || rootDir,
 		stdio: 'pipe',
 		encoding: 'utf8'
@@ -5191,6 +5209,7 @@ module.exports = {
 	extractBestDoiCandidate,
 	extractPdfCandidates,
 	main,
+	normalizeCommandForSpawn,
 	normalizeArxivId,
 	normalizeDoi,
 	syncStyles,
